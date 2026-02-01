@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v12</title>
+    <title>PiTaPa利用チェックツール v13</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -28,18 +28,17 @@
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 印刷用スタイル - A4縦に最適化 */
+        /* 印刷用スタイル - A4縦に最適化 (縮小表示) */
         @media print {
             @page { 
                 size: A4 portrait; 
-                margin: 10mm; 
+                margin: 5mm; /* 余白を最小限に */
             }
             body { 
                 background-color: white; 
                 -webkit-print-color-adjust: exact; 
                 print-color-adjust: exact; 
                 font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; 
-                font-size: 10pt;
                 width: 100%;
                 height: 100%;
             }
@@ -61,45 +60,46 @@
             }
             
             .print-area { 
-                display: block !important; 
+                display: block !important;
+                zoom: 0.80; /* 全体を80%に縮小して情報を詰め込む */
             }
 
             /* 改ページ制御 */
             .page-break { page-break-before: always; }
             .print-break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
             
-            /* テーブルデザイン調整 - A4縦幅に収まるように */
+            /* テーブルデザイン調整 - 高密度化 */
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
-                font-size: 9pt; 
+                font-size: 7.5pt; /* フォントサイズを小さく */
                 table-layout: fixed; 
             }
             th, td { 
-                border: 1px solid #000; 
-                padding: 4px 6px; 
+                border: 1px solid #444; 
+                padding: 2px 4px; /* パディングを詰める */
                 word-wrap: break-word; 
-                vertical-align: top;
+                vertical-align: middle;
+                line-height: 1.2;
             }
             th { 
-                background-color: #f0f0f0 !important; 
+                background-color: #e5e7eb !important; 
                 color: #000 !important; 
                 font-weight: bold; 
+                text-align: center;
             }
             
-            /* 列幅の調整 */
-            th:nth-child(1) { width: 10%; } /* 状態 */
-            th:nth-child(2) { width: 12%; } /* 日付 */
-            th:nth-child(3) { width: 12%; } /* 時間 */
-            th:nth-child(4) { width: 30%; } /* 内容 */
+            /* 列幅の微調整 */
+            th:nth-child(1) { width: 8%; }  /* 状態 */
+            th:nth-child(2) { width: 10%; } /* 日付 */
+            th:nth-child(3) { width: 10%; } /* 時間 */
+            th:nth-child(4) { width: 35%; } /* 内容 */
             th:nth-child(5) { width: 10%; } /* 金額 */
-            th:nth-child(6) { width: 26%; } /* 備考 */
+            th:nth-child(6) { width: 27%; } /* 備考 */
 
             /* 色の維持 */
             .bg-red-50 { background-color: #ffebeb !important; }
             .text-red-600 { color: #d00000 !important; }
-            .bg-yellow-100 { background-color: #fffde7 !important; border: 1px solid #f9a825 !important; }
-            .text-yellow-800 { color: #f57f17 !important; }
             
             /* カードスタイル解除 */
             .shadow-sm { box-shadow: none !important; border: none !important; }
@@ -108,16 +108,18 @@
             /* 結果カードの間隔 */
             .result-card { 
                 border-bottom: 2px solid #000; 
-                margin-bottom: 20px; 
-                padding-bottom: 20px; 
+                margin-bottom: 10px; 
+                padding-bottom: 10px; 
             }
             
             /* ヘッダー情報 */
             .result-header { 
                 border-bottom: 1px solid #ccc; 
-                margin-bottom: 10px; 
-                padding-bottom: 5px; 
+                margin-bottom: 5px; 
+                padding: 5px 0; 
             }
+            .result-header h3 { font-size: 11pt; margin: 0; }
+            .result-header p { font-size: 9pt; margin: 0; }
         }
     </style>
 </head>
@@ -248,118 +250,46 @@
             { from: "六甲", to: "神戸新交通" }
         ];
 
-        // デフォルトで主要なゆらぎを網羅 (主要駅 + 新規追加事業者)
-        const INITIAL_STATION_ALIASES = [
-            // 大阪メトロ
-            { from: "梅田", to: "大阪梅田", company: "" },
-            { from: "難波", to: "大阪難波", company: "" },
-            { from: "なんば", to: "なんば", company: "" },
-            { from: "天王寺", to: "天王寺", company: "" },
-            { from: "新大阪", to: "新大阪", company: "" },
-            { from: "心斎橋", to: "心斎橋", company: "" },
-            { from: "本町", to: "本町", company: "" },
-            { from: "淀屋橋", to: "淀屋橋", company: "" },
-            // 阪急
-            { from: "阪急梅田", to: "大阪梅田", company: "阪急" },
-            { from: "河原町", to: "京都河原町", company: "阪急" },
-            { from: "石橋", to: "石橋阪大前", company: "阪急" },
-            { from: "三宮", to: "神戸三宮", company: "阪急" },
-            { from: "上新", to: "上新庄", company: "阪急" },
-            { from: "淡路", to: "淡路", company: "阪急" },
-            { from: "西宮", to: "西宮北口", company: "阪急" }, 
-            { from: "西北", to: "西宮北口", company: "阪急" },
-            { from: "茨木", to: "茨木市", company: "阪急" },
-            { from: "高槻", to: "高槻市", company: "阪急" },
-            // 阪神
-            { from: "阪神梅田", to: "大阪梅田", company: "阪神" },
-            { from: "阪神三宮", to: "神戸三宮", company: "阪神" },
-            { from: "鳴尾", to: "鳴尾・武庫川女子大前", company: "阪神" },
-            { from: "尼セン", to: "尼崎センタープール前", company: "阪神" },
-            { from: "尼崎", to: "尼崎", company: "阪神" },
-            { from: "西宮", to: "西宮", company: "阪神" },
-            // 京阪
-            { from: "京阪三条", to: "三条", company: "京阪" },
-            { from: "四条", to: "祇園四条", company: "京阪" },
-            { from: "五条", to: "清水五条", company: "京阪" },
-            { from: "七条", to: "七条", company: "京阪" },
-            { from: "八幡", to: "石清水八幡宮", company: "京阪" },
-            { from: "関目", to: "関目", company: "京阪" }, 
-            { from: "枚方", to: "枚方市", company: "京阪" },
-            { from: "寝屋川", to: "寝屋川市", company: "京阪" },
-            // 近鉄
-            { from: "上本町", to: "大阪上本町", company: "近鉄" },
-            { from: "阿部野橋", to: "大阪阿部野橋", company: "近鉄" },
-            { from: "阿倍野", to: "大阪阿部野橋", company: "近鉄" },
-            { from: "難波", to: "大阪難波", company: "近鉄" },
-            { from: "奈良", to: "近鉄奈良", company: "近鉄" },
-            { from: "西大寺", to: "大和西大寺", company: "近鉄" },
-            { from: "八木", to: "大和八木", company: "近鉄" },
-            { from: "高田", to: "大和高田", company: "近鉄" },
-            { from: "丹波橋", to: "近鉄丹波橋", company: "近鉄" },
-            { from: "日本橋", to: "近鉄日本橋", company: "近鉄" },
-            // 南海
-            { from: "難波", to: "難波", company: "南海" },
+        // 手動で設定する特殊な略称（自動生成ルールでカバーできないもの）
+        const MANUAL_STATION_ALIASES = [
+            // 特殊
             { from: "天茶", to: "天下茶屋", company: "南海" },
             { from: "新今", to: "新今宮", company: "南海" },
-            { from: "泉佐野", to: "泉佐野", company: "南海" },
-            { from: "和歌山", to: "和歌山市", company: "南海" },
             { from: "関空", to: "関西空港", company: "南海" },
-            { from: "金剛", to: "金剛", company: "南海" },
-            { from: "堺", to: "堺", company: "南海" },
-            { from: "堺東", to: "堺東", company: "南海" },
-            // 大阪モノレール
-            { from: "柴原", to: "柴原阪大前", company: "モノレール" },
-            { from: "万博", to: "万博記念公園", company: "モノレール" },
-            { from: "蛍池", to: "蛍池", company: "モノレール" },
-            { from: "門真", to: "門真市", company: "モノレール" },
-            { from: "空港", to: "大阪空港", company: "モノレール" },
-            // 北大阪急行
-            { from: "箕面", to: "箕面萱野", company: "北急" },
-            { from: "船場", to: "箕面船場阪大前", company: "北急" },
+            { from: "上新", to: "上新庄", company: "阪急" },
+            { from: "西宮", to: "西宮北口", company: "阪急" }, 
+            { from: "西北", to: "西宮北口", company: "阪急" },
+            { from: "尼セン", to: "尼崎センタープール前", company: "阪神" },
             { from: "千中", to: "千里中央", company: "北急" },
-            // 山陽
-            { from: "西代", to: "西代", company: "山陽" },
-            { from: "明石", to: "山陽明石", company: "山陽" },
-            { from: "姫路", to: "山陽姫路", company: "山陽" },
-            { from: "垂水", to: "山陽垂水", company: "山陽" },
-            { from: "須磨", to: "山陽須磨", company: "山陽" },
-            // 嵐電
+            { from: "万博", to: "万博記念公園", company: "モノレール" },
+            { from: "市役所", to: "貝塚市役所前", company: "水間" },
+            { from: "計算科学", to: "計算科学センター", company: "ポート" },
+            { from: "医療", to: "医療センター", company: "ポート" },
             { from: "大宮", to: "四条大宮", company: "京福" },
             { from: "天神川", to: "嵐電天神川", company: "京福" },
             { from: "広隆寺", to: "太秦広隆寺", company: "京福" },
             { from: "嵯峨", to: "嵐電嵯峨", company: "京福" },
             { from: "白梅町", to: "北野白梅町", company: "京福" },
             { from: "等持院", to: "等持院・立命館大学衣笠キャンパス前", company: "京福" },
-            // 叡電
             { from: "茶山", to: "茶山・京都芸術大学", company: "叡電" },
             { from: "八瀬", to: "八瀬比叡山口", company: "叡電" },
             { from: "精華大", to: "京都精華大前", company: "叡電" },
-            // 神鉄
             { from: "道場", to: "神鉄道場", company: "神鉄" },
             { from: "六甲", to: "神鉄六甲", company: "神鉄" },
-            { from: "三田", to: "三田", company: "神鉄" },
-            { from: "新開地", to: "新開地", company: "神鉄" },
-            // 能勢電
             { from: "川西", to: "川西能勢口", company: "能勢" },
             { from: "日生", to: "日生中央", company: "能勢" },
             { from: "妙見", to: "妙見口", company: "能勢" },
-            // 泉北
             { from: "泉ヶ丘", to: "泉ケ丘", company: "泉北" },
             { from: "栂", to: "栂・美木多", company: "泉北" },
-            { from: "中百舌鳥", to: "中百舌鳥", company: "泉北" },
-            // 水間
-            { from: "市役所", to: "貝塚市役所前", company: "水間" },
-            { from: "水間", to: "水間観音", company: "水間" },
-            // 神戸新交通
-            { from: "三宮", to: "三宮", company: "ポート" },
-            { from: "空港", to: "神戸空港", company: "ポート" },
-            { from: "計算科学", to: "計算科学センター", company: "ポート" },
-            { from: "医療", to: "医療センター", company: "ポート" },
-            // JR
-            { from: "三ノ宮", to: "三ノ宮", company: "JR" }, 
-            { from: "大阪", to: "大阪", company: "JR" },
-            { from: "京都", to: "京都", company: "JR" },
-            { from: "天王寺", to: "天王寺", company: "JR" }
+            // 主要重複駅の明示
+            { from: "梅田", to: "大阪梅田", company: "阪急" },
+            { from: "梅田", to: "大阪梅田", company: "阪神" },
+            { from: "梅田", to: "東梅田", company: "大阪メトロ" }, // 谷町線の場合など(CSVの会社名で判断される)
+            { from: "梅田", to: "西梅田", company: "大阪メトロ" },
+            { from: "難波", to: "大阪難波", company: "近鉄" },
+            { from: "難波", to: "大阪難波", company: "阪神" },
+            { from: "三宮", to: "神戸三宮", company: "阪急" },
+            { from: "三宮", to: "神戸三宮", company: "阪神" }
         ];
 
         const INITIAL_HOLIDAYS = [
@@ -367,6 +297,57 @@
             "2025-01-01", "2025-01-13", "2025-02-11", "2025-02-23", "2025-02-24", "2025-03-20", "2025-04-29", "2025-05-03", "2025-05-04", "2025-05-05", "2025-05-06", "2025-07-21", "2025-08-11", "2025-09-15", "2025-09-23", "2025-10-13", "2025-11-03", "2025-11-23", "2025-11-24",
             "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-07-20", "2026-08-11", "2026-09-21", "2026-09-22", "2026-09-23", "2026-10-12", "2026-11-03", "2026-11-23"
         ];
+
+        // --- ゆらぎ自動生成 ---
+        const generateDefaultAliases = () => {
+            const autoAliases = [];
+            const companyShortNames = {
+                "大阪メトロ": ["大阪", "大地"],
+                "阪急電鉄": ["阪急"],
+                "阪神電車": ["阪神"],
+                "京阪電車": ["京阪"],
+                "近鉄電車": ["近鉄"],
+                "南海電鉄": ["南海"],
+                "神戸市営地下鉄": ["神戸"],
+                "神戸電鉄": ["神鉄"]
+            };
+
+            Object.entries(STATION_DATA).forEach(([company, lines]) => {
+                Object.values(lines).forEach(stations => {
+                    stations.forEach(station => {
+                        // 1. 正式名称そのもの (会社紐付け用)
+                        autoAliases.push({ from: station, to: station, company: company });
+
+                        // 2. 接頭辞カット (例: 大阪梅田 -> 梅田)
+                        // 接頭辞リスト: 大阪, 神戸, 近鉄, 京阪, 阪神, 阪急, 山陽, 能勢, 南海
+                        const prefixes = ["大阪", "神戸", "近鉄", "京阪", "阪神", "阪急", "山陽", "能勢", "南海"];
+                        prefixes.forEach(prefix => {
+                            if (station.startsWith(prefix) && station.length > prefix.length) {
+                                const shortName = station.substring(prefix.length);
+                                autoAliases.push({ from: shortName, to: station, company: company });
+                            }
+                        });
+
+                        // 3. 接尾辞カット (例: 高槻市 -> 高槻, 〇〇駅 -> 〇〇)
+                        if (station.endsWith("市") && station.length > 2) {
+                            autoAliases.push({ from: station.slice(0, -1), to: station, company: company });
+                        }
+                        if (station.endsWith("駅") && station.length > 1) {
+                            autoAliases.push({ from: station.slice(0, -1), to: station, company: company });
+                        }
+
+                        // 4. 括弧書きカット
+                        if (station.includes("(") || station.includes("（")) {
+                            const cleanName = station.replace(/[\(（].+?[\)）]/, "");
+                            if (cleanName !== station) {
+                                autoAliases.push({ from: cleanName, to: station, company: company });
+                            }
+                        }
+                    });
+                });
+            });
+            return autoAliases;
+        };
 
         // --- ユーティリティ ---
 
@@ -420,42 +401,36 @@
             return results;
         };
 
-        // 事業者名のゆらぎ解決
         const resolveCompanyAlias = (prefix, companyAliases) => {
             const found = companyAliases.find(a => a.from === prefix || prefix.includes(a.from));
             return found ? found.to : prefix;
         };
 
-        // 駅名のゆらぎ解決（ファジーマッチ対応）
         const resolveStationAlias = (stationName, aliases, targetCompanyPrefix, companyAliases) => {
-            // 1. まず事業者名を正規化
             const normalizedCompany = resolveCompanyAlias(targetCompanyPrefix, companyAliases);
             
-            // 2. ゆらぎ設定(aliases)から完全一致検索
+            // 完全一致検索 (エイリアスリスト)
             const found = aliases.find(a => {
                 const nameMatch = a.from === stationName;
+                // 会社指定がないエイリアス or 会社が一致するエイリアス
                 const companyMatch = !a.company || normalizedCompany.includes(a.company) || targetCompanyPrefix.includes(a.company);
                 return nameMatch && companyMatch;
             });
             if (found) return found.to;
 
-            // 3. ファジーマッチ（3文字以上一致）の自動判定
-            // 駅名マスタ(STATION_DATA)の中から、対象事業者の駅リストを探す
+            // ファジーマッチ（3文字以上一致）の自動判定
             if (STATION_DATA[normalizedCompany]) {
                 const lines = Object.values(STATION_DATA[normalizedCompany]);
                 for (const stations of lines) {
                     for (const masterStation of stations) {
-                        // 3文字以上一致チェック
                         if (masterStation.length >= 3 && stationName.length >= 3) {
                             if (masterStation.includes(stationName) || stationName.includes(masterStation)) {
-                                // 含まれる関係かつ、短い方の長さが3以上なら一致とみなす
                                 return masterStation;
                             }
                         }
                     }
                 }
             }
-
             return stationName;
         };
 
@@ -503,7 +478,6 @@
                     });
                 });
             }
-            
             return exists;
         };
 
@@ -581,7 +555,8 @@
             const [users, setUsers] = useState([]);
             const [holidays, setHolidays] = useState(INITIAL_HOLIDAYS);
             const [holidayInput, setHolidayInput] = useState(INITIAL_HOLIDAYS.join('\n'));
-            const [aliases, setAliases] = useState(INITIAL_STATION_ALIASES);
+            // 初期化時に自動生成エイリアスと手動エイリアスを結合
+            const [aliases, setAliases] = useState([...generateDefaultAliases(), ...MANUAL_STATION_ALIASES]);
             const [companyAliases, setCompanyAliases] = useState(INITIAL_COMPANY_ALIASES);
             
             // Temporary states for inputs
@@ -870,15 +845,12 @@
 
             // 印刷処理
             const handlePrint = () => {
-                // 通常のプリントダイアログ呼び出し
                 try {
-                    // フォーカスを当ててから印刷を実行（一部のブラウザでの不具合回避）
                     window.focus();
                     window.print();
                 } catch (e) {
-                    // エラーハンドリング
                     console.error("Print failed:", e);
-                    alert("印刷機能の呼び出しに失敗しました。ブラウザのメニュー「ファイル」→「印刷」、またはキーボードショートカット（Ctrl+P / Cmd+P）を使用してください。");
+                    alert("印刷機能の呼び出しに失敗しました。ブラウザのメニューから印刷してください。");
                 }
             };
 
@@ -887,7 +859,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v12
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v13
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1136,17 +1108,18 @@
                                     {/* 駅名ゆらぎ */}
                                     <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 alias-input-form">
                                         <h2 className="text-lg font-bold mb-4 text-gray-800">駅名変換設定（ゆらぎ）</h2>
+                                        <p className="text-xs text-gray-500 mb-2">※全路線の全駅名（正式名称、市・駅省略形、接頭辞省略形）は自動登録済みです。</p>
                                         <div className="flex gap-2 mb-2 items-center">
                                             <div className="flex-1 space-y-1">
                                                 <input 
                                                     className="w-full border p-1 rounded text-sm" 
-                                                    placeholder="略称 (例: 梅田)" 
+                                                    placeholder="略称 (例: 天茶)" 
                                                     value={newAlias.from}
                                                     onChange={(e) => setNewAlias({...newAlias, from: e.target.value})}
                                                 />
                                                 <input 
                                                     className="w-full border p-1 rounded text-sm" 
-                                                    placeholder="正式 (例: 大阪梅田)" 
+                                                    placeholder="正式 (例: 天下茶屋)" 
                                                     value={newAlias.to}
                                                     onChange={(e) => setNewAlias({...newAlias, to: e.target.value})}
                                                 />
@@ -1163,7 +1136,7 @@
                                             <table className="w-full text-xs">
                                                 <thead><tr className="text-left text-gray-500"><th>略称</th><th>正式</th><th>事業者</th><th></th></tr></thead>
                                                 <tbody>
-                                                    {aliases.map((a, i) => (
+                                                    {aliases.filter(a => MANUAL_STATION_ALIASES.some(ma => ma.from === a.from) || !a.company).map((a, i) => (
                                                         <tr key={i} className="border-b">
                                                             <td className="py-1">{a.from}</td>
                                                             <td className="py-1">{a.to}</td>
@@ -1173,6 +1146,7 @@
                                                             </td>
                                                         </tr>
                                                     ))}
+                                                    <tr><td colSpan="4" className="text-center text-gray-400 py-2">...他 自動生成分多数...</td></tr>
                                                 </tbody>
                                             </table>
                                         </div>
