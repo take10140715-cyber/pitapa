@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v16</title>
+    <title>PiTaPa利用チェックツール v17</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -77,7 +77,7 @@
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
-                font-size: 7pt; /* 文字サイズ縮小 */
+                font-size: 7pt; /* ベース文字サイズ */
                 table-layout: fixed; 
             }
             th, td { 
@@ -85,8 +85,8 @@
                 padding: 0px 2px; /* パディング最小 */
                 word-wrap: break-word; 
                 vertical-align: middle;
-                line-height: 1.1; /* 行間圧縮 */
-                height: auto; /* 高さを内容に合わせる */
+                line-height: 1.0; /* 行間を極限まで詰める */
+                height: auto; 
             }
             th { 
                 background-color: #f0f0f0 !important; 
@@ -95,51 +95,67 @@
                 text-align: center;
                 padding: 1px;
                 font-size: 7pt;
+                white-space: nowrap;
             }
             
-            /* 列幅の最適化 */
-            th:nth-child(1) { width: 7%; }  /* 状態 (狭く) */
-            th:nth-child(2) { width: 8%; }  /* 日付 (狭く) */
-            th:nth-child(3) { width: 8%; }  /* 時間 (狭く) */
-            th:nth-child(4) { width: 45%; } /* 内容 (広く) */
-            th:nth-child(5) { width: 8%; }  /* 金額 (狭く) */
-            th:nth-child(6) { width: 24%; } /* 備考 (残りを割り当て) */
+            /* 列幅の最適化 (v17: 時間幅拡張、内容縮小、備考微増) */
+            th:nth-child(1) { width: 6%; }  /* 状態 */
+            th:nth-child(2) { width: 10%; } /* 日付 */
+            th:nth-child(3) { width: 14%; } /* 時間 (大幅増) */
+            th:nth-child(4) { width: 35%; } /* 内容 (縮小) */
+            th:nth-child(5) { width: 8%; }  /* 金額 */
+            th:nth-child(6) { width: 27%; } /* 備考 (微増) */
 
             /* バッジ */
             td:nth-child(1) span { 
-                font-size: 6pt !important;
+                font-size: 5.5pt !important;
                 padding: 0 !important; 
                 border: 1px solid #ccc !important;
                 margin: 0 !important;
                 display: inline-block;
                 white-space: nowrap;
                 line-height: 1;
+                transform: scale(0.95);
             }
 
             /* 日付・時間 */
             td:nth-child(2), td:nth-child(3) { 
                 text-align: center; 
                 white-space: nowrap; 
-                font-family: Arial, sans-serif; /* 等幅っぽくして見やすく */
-                letter-spacing: -0.5px; /* 文字間を詰める */
+                font-family: Arial, sans-serif; 
+                letter-spacing: -0.5px;
+                font-size: 7pt;
             }
 
-            /* 内容 */
-            td:nth-child(4) { text-align: left; }
+            /* 内容 (文字小さく、行間詰め) */
+            td:nth-child(4) { 
+                text-align: left; 
+                font-size: 7pt;
+            }
 
             /* 金額 */
-            td:nth-child(5) { text-align: right; font-family: Arial, sans-serif; }
+            td:nth-child(5) { text-align: right; font-family: Arial, sans-serif; font-size: 7pt; }
             
-            /* 備考 */
-            td:nth-child(6) { font-size: 6.5pt; line-height: 1; }
+            /* 備考 (さらに小さく) */
+            td:nth-child(6) { 
+                font-size: 6.5pt; 
+                line-height: 0.95; 
+            }
 
-            /* 色の維持 (白黒印刷でも見分けがつく程度に) */
+            /* 色の維持 */
             .bg-red-50 { background-color: #fff0f0 !important; }
-            .text-red-600 { color: #000 !important; font-weight: bold; } /* 赤字は太字黒に */
+            .text-red-600 { color: #000 !important; font-weight: bold; } 
             
             /* カードスタイル解除 */
             .shadow-sm { box-shadow: none !important; border: none !important; }
             .rounded-xl { border-radius: 0 !important; border: none !important; }
+            
+            /* 結果カードの間隔 */
+            .result-card { 
+                border-bottom: 2px solid #000; 
+                margin-bottom: 10px; 
+                padding-bottom: 5px; 
+            }
             
             /* ヘッダー情報 */
             .result-header { 
@@ -150,14 +166,14 @@
                 justify-content: space-between;
                 align-items: flex-end;
             }
-            .result-header h3 { font-size: 10pt; margin: 0; }
+            .result-header h3 { font-size: 9pt; margin: 0; }
             .result-header .summary-info { font-size: 8pt; margin: 0; }
             
-            /* 未提出・重複サマリーのスタイル (印刷用) */
+            /* サマリーボックス */
             .print-summary-box {
                 border: 1px solid #000;
-                padding: 5px;
-                margin-bottom: 10px;
+                padding: 2px 5px;
+                margin-bottom: 5px;
                 font-size: 8pt;
                 break-inside: avoid;
             }
@@ -893,7 +909,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v16
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v17
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1335,7 +1351,10 @@
                                                                     </td>
                                                                     <td className="px-6 py-3 font-mono text-gray-600">{row.date}</td>
                                                                     <td className="px-6 py-3 font-mono text-gray-600">{row.time}</td>
-                                                                    <td className="px-6 py-3 font-medium text-gray-800">{row.content}</td>
+                                                                    <td className="px-6 py-3 font-medium text-gray-800">
+                                                                        {/* 空白削除処理 */}
+                                                                        {row.content.replace(/[\s　]+/g, ' ')}
+                                                                    </td>
                                                                     <td className="px-6 py-3 text-right font-mono">¥{row.amount.toLocaleString()}</td>
                                                                     <td className="px-6 py-3 truncate max-w-xs text-gray-500">
                                                                         {row.overlapInfoText && (
