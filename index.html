@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v13</title>
+    <title>PiTaPa利用チェックツール v15</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -28,11 +28,11 @@
         .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
         @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 印刷用スタイル - A4縦に最適化 (縮小表示) */
+        /* 印刷用スタイル - A4縦に最適化 (縮小表示・高密度) */
         @media print {
             @page { 
                 size: A4 portrait; 
-                margin: 5mm; /* 余白を最小限に */
+                margin: 5mm; 
             }
             body { 
                 background-color: white; 
@@ -61,7 +61,7 @@
             
             .print-area { 
                 display: block !important;
-                zoom: 0.80; /* 全体を80%に縮小して情報を詰め込む */
+                zoom: 0.80; /* 全体を縮小して情報を詰め込む */
             }
 
             /* 改ページ制御 */
@@ -72,54 +72,71 @@
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
-                font-size: 7.5pt; /* フォントサイズを小さく */
+                font-size: 7.5pt; 
                 table-layout: fixed; 
             }
             th, td { 
                 border: 1px solid #444; 
-                padding: 2px 4px; /* パディングを詰める */
+                padding: 1px 3px; 
                 word-wrap: break-word; 
                 vertical-align: middle;
-                line-height: 1.2;
+                line-height: 1.1; 
             }
             th { 
                 background-color: #e5e7eb !important; 
                 color: #000 !important; 
                 font-weight: bold; 
                 text-align: center;
+                font-size: 8pt;
+                padding: 2px;
             }
             
-            /* 列幅の微調整 */
-            th:nth-child(1) { width: 8%; }  /* 状態 */
-            th:nth-child(2) { width: 10%; } /* 日付 */
-            th:nth-child(3) { width: 10%; } /* 時間 */
-            th:nth-child(4) { width: 35%; } /* 内容 */
-            th:nth-child(5) { width: 10%; } /* 金額 */
-            th:nth-child(6) { width: 27%; } /* 備考 */
+            /* 列幅 */
+            th:nth-child(1) { width: 9%; }
+            th:nth-child(2) { width: 11%; }
+            th:nth-child(3) { width: 11%; }
+            th:nth-child(4) { width: 34%; }
+            th:nth-child(5) { width: 10%; }
+            th:nth-child(6) { width: 25%; }
+
+            /* バッジ内の文字を小さく */
+            td:nth-child(1) span { 
+                font-size: 6pt !important;
+                padding: 0px 2px !important; 
+                white-space: nowrap; 
+            }
+
+            /* 備考も小さく */
+            td:nth-child(6) { font-size: 7pt; line-height: 1.0; }
+
+            /* 金額右寄せ */
+            td:nth-child(5) { text-align: right; font-family: monospace; }
+
+            /* 日付・時間 中央揃え */
+            td:nth-child(2), td:nth-child(3) { text-align: center; white-space: nowrap; }
 
             /* 色の維持 */
             .bg-red-50 { background-color: #ffebeb !important; }
             .text-red-600 { color: #d00000 !important; }
+            .bg-yellow-100 { background-color: #fffde7 !important; border: 1px solid #f9a825 !important; }
+            .text-yellow-800 { color: #f57f17 !important; }
             
-            /* カードスタイル解除 */
             .shadow-sm { box-shadow: none !important; border: none !important; }
             .rounded-xl { border-radius: 0 !important; border: none !important; }
             
-            /* 結果カードの間隔 */
             .result-card { 
                 border-bottom: 2px solid #000; 
                 margin-bottom: 10px; 
-                padding-bottom: 10px; 
+                padding-bottom: 5px; 
             }
             
-            /* ヘッダー情報 */
             .result-header { 
                 border-bottom: 1px solid #ccc; 
-                margin-bottom: 5px; 
-                padding: 5px 0; 
+                margin-bottom: 3px; 
+                padding: 3px 0; 
             }
-            .result-header h3 { font-size: 11pt; margin: 0; }
-            .result-header p { font-size: 9pt; margin: 0; }
+            .result-header h3 { font-size: 10pt; margin: 0; }
+            .result-header p, .result-header div { font-size: 8pt; margin: 0; }
         }
     </style>
 </head>
@@ -374,7 +391,8 @@
                 const cleanLine = line.replace(/"/g, "");
                 const nameMatch = cleanLine.match(nameRegex);
                 if (nameMatch) {
-                    currentName = nameMatch[1].replace(/\s+/g, ""); 
+                    // v15変更: スペースを削除せずトリムのみ行う
+                    currentName = nameMatch[1].trim();
                     return;
                 }
                 const columns = line.split(",").map(c => c.trim().replace(/"/g, ""));
@@ -409,16 +427,15 @@
         const resolveStationAlias = (stationName, aliases, targetCompanyPrefix, companyAliases) => {
             const normalizedCompany = resolveCompanyAlias(targetCompanyPrefix, companyAliases);
             
-            // 完全一致検索 (エイリアスリスト)
+            // 完全一致検索
             const found = aliases.find(a => {
                 const nameMatch = a.from === stationName;
-                // 会社指定がないエイリアス or 会社が一致するエイリアス
                 const companyMatch = !a.company || normalizedCompany.includes(a.company) || targetCompanyPrefix.includes(a.company);
                 return nameMatch && companyMatch;
             });
             if (found) return found.to;
 
-            // ファジーマッチ（3文字以上一致）の自動判定
+            // ファジーマッチ
             if (STATION_DATA[normalizedCompany]) {
                 const lines = Object.values(STATION_DATA[normalizedCompany]);
                 for (const stations of lines) {
@@ -555,10 +572,12 @@
             const [users, setUsers] = useState([]);
             const [holidays, setHolidays] = useState(INITIAL_HOLIDAYS);
             const [holidayInput, setHolidayInput] = useState(INITIAL_HOLIDAYS.join('\n'));
-            // 初期化時に自動生成エイリアスと手動エイリアスを結合
             const [aliases, setAliases] = useState([...generateDefaultAliases(), ...MANUAL_STATION_ALIASES]);
             const [companyAliases, setCompanyAliases] = useState(INITIAL_COMPANY_ALIASES);
             
+            // v15: No usage tracking
+            const [noUsageUsers, setNoUsageUsers] = useState([]); // List of user names
+
             // Temporary states for inputs
             const [tempUser, setTempUser] = useState({ name: "", passes: [] });
             const [editingPass, setEditingPass] = useState({ company: "JR西日本", line: "", from: "", to: "" });
@@ -618,35 +637,21 @@
                 setCompanyAliases(companyAliases.filter((_, i) => i !== index));
             };
 
-            // Export Settings as CSV (Structured)
             const handleExportSettings = () => {
-                let csvContent = "\uFEFF"; // BOM
-                
-                csvContent += "# === ユーザー定期設定 ===\n";
-                csvContent += "# Type, Name, Company, Line, From, To\n";
+                let csvContent = "\uFEFF"; 
+                csvContent += "# === ユーザー定期設定 ===\n# Type, Name, Company, Line, From, To\n";
                 users.forEach(u => {
                     u.passes.forEach(p => {
-                        csvContent += `USER,${u.displayName || u.name},${p.company},${p.line},${p.from},${p.to}\n`;
+                        // v15: name is same as displayName
+                        csvContent += `USER,${u.name},${p.company},${p.line},${p.from},${p.to}\n`;
                     });
                 });
-                
-                csvContent += "\n# === 休日設定 ===\n";
-                csvContent += "# Type, Date\n";
-                holidays.forEach(h => {
-                    csvContent += `HOLIDAY,${h}\n`;
-                });
-                
-                csvContent += "\n# === 事業者名ゆらぎ設定 ===\n";
-                csvContent += "# Type, From, To\n";
-                companyAliases.forEach(ca => {
-                    csvContent += `COMPANY_ALIAS,${ca.from},${ca.to}\n`;
-                });
-
-                csvContent += "\n# === 駅名ゆらぎ設定 ===\n";
-                csvContent += "# Type, From, To, Company(Optional)\n";
-                aliases.forEach(a => {
-                    csvContent += `ALIAS,${a.from},${a.to},${a.company || ''}\n`;
-                });
+                csvContent += "\n# === 休日設定 ===\n# Type, Date\n";
+                holidays.forEach(h => { csvContent += `HOLIDAY,${h}\n`; });
+                csvContent += "\n# === 事業者名ゆらぎ設定 ===\n# Type, From, To\n";
+                companyAliases.forEach(ca => { csvContent += `COMPANY_ALIAS,${ca.from},${ca.to}\n`; });
+                csvContent += "\n# === 駅名ゆらぎ設定 ===\n# Type, From, To, Company(Optional)\n";
+                aliases.forEach(a => { csvContent += `ALIAS,${a.from},${a.to},${a.company || ''}\n`; });
 
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
@@ -665,38 +670,33 @@
                     try {
                         const text = ev.target.result;
                         const lines = text.split(/\r\n|\n/);
-                        
                         const newUsers = [];
                         const newHolidays = [];
                         const newAliases = [];
                         const newCompanyAliases = [];
                         
                         lines.forEach(line => {
-                            if (!line.trim() || line.startsWith("#")) return; // Skip empty and comments
+                            if (!line.trim() || line.startsWith("#")) return;
                             const cols = line.split(',').map(c => c.trim());
                             const type = cols[0];
                             
                             if (type === 'USER' && cols.length >= 6) {
                                 const name = cols[1];
                                 const pass = { company: cols[2], line: cols[3], from: cols[4], to: cols[5] };
-                                const existingUser = newUsers.find(u => u.displayName === name);
+                                const existingUser = newUsers.find(u => u.name === name);
                                 if (existingUser) {
                                     existingUser.passes.push(pass);
                                 } else {
                                     newUsers.push({
                                         id: Date.now() + Math.random(),
                                         displayName: name,
-                                        name: name.replace(/\s+/g, ""),
+                                        name: name, // v15: keep spaces
                                         passes: [pass]
                                     });
                                 }
-                            } else if (type === 'HOLIDAY' && cols.length >= 2) {
-                                newHolidays.push(cols[1]);
-                            } else if (type === 'COMPANY_ALIAS' && cols.length >= 3) {
-                                newCompanyAliases.push({ from: cols[1], to: cols[2] });
-                            } else if (type === 'ALIAS' && cols.length >= 3) {
-                                newAliases.push({ from: cols[1], to: cols[2], company: cols[3] || "" });
-                            }
+                            } else if (type === 'HOLIDAY' && cols.length >= 2) newHolidays.push(cols[1]);
+                            else if (type === 'COMPANY_ALIAS' && cols.length >= 3) newCompanyAliases.push({ from: cols[1], to: cols[2] });
+                            else if (type === 'ALIAS' && cols.length >= 3) newAliases.push({ from: cols[1], to: cols[2], company: cols[3] || "" });
                         });
 
                         if (newUsers.length > 0) setUsers(newUsers);
@@ -706,8 +706,7 @@
                         }
                         if (newAliases.length > 0) setAliases(newAliases);
                         if (newCompanyAliases.length > 0) setCompanyAliases(newCompanyAliases);
-                        
-                        alert('設定（CSV）を読み込みました');
+                        alert('設定を読み込みました');
                     } catch (err) {
                         alert('読み込みに失敗しました: ' + err);
                     }
@@ -742,7 +741,7 @@
                 const newUser = {
                     id: Date.now(),
                     displayName: tempUser.name,
-                    name: tempUser.name.replace(/\s+/g, ""),
+                    name: tempUser.name, // v15: keep spaces strictly
                     passes: tempUser.passes
                 };
                 setUsers([...users, newUser]);
@@ -781,7 +780,9 @@
                             alerts.push('holiday');
                         }
 
-                        const user = users.find(u => record.name.includes(u.name) || u.name.includes(record.name));
+                        // v15: Strict match (exact string)
+                        const user = users.find(u => u.name === record.name);
+                        
                         if (user && user.passes.length > 0 && usageInfo) {
                             for (const pass of user.passes) {
                                 const check = checkRouteOverlap(usageInfo, pass, companyAliases);
@@ -804,7 +805,7 @@
                 const map = {};
                 users.forEach(u => {
                     map[u.name] = { 
-                        name: u.displayName || u.name, 
+                        name: u.name, 
                         totalAmount: 0, 
                         targetAmount: 0, 
                         alertCount: 0, 
@@ -840,17 +841,25 @@
                 return Object.values(map);
             }, [analyzedData, users]);
 
-            const missingUsers = userSummaries.filter(u => !u.isSubmitted && !u.isUnregistered);
-            const activeUsers = userSummaries.filter(u => u.isSubmitted);
+            const missingUsers = userSummaries.filter(u => !u.isSubmitted && !u.isUnregistered && !noUsageUsers.includes(u.name));
+            const activeUsers = userSummaries.filter(u => u.isSubmitted || noUsageUsers.includes(u.name));
+            const duplicateRouteUsers = userSummaries.filter(u => u.targetAmount > 0);
 
-            // 印刷処理
+            // v15: Toggle no usage status
+            const toggleNoUsage = (name) => {
+                if (noUsageUsers.includes(name)) {
+                    setNoUsageUsers(noUsageUsers.filter(n => n !== name));
+                } else {
+                    setNoUsageUsers([...noUsageUsers, name]);
+                }
+            };
+
             const handlePrint = () => {
                 try {
                     window.focus();
                     window.print();
                 } catch (e) {
-                    console.error("Print failed:", e);
-                    alert("印刷機能の呼び出しに失敗しました。ブラウザのメニューから印刷してください。");
+                    alert("印刷機能の呼び出しに失敗しました。");
                 }
             };
 
@@ -859,7 +868,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v13
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v15
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -937,7 +946,7 @@
                                         <h2 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">新規社員・定期登録</h2>
                                         <div className="space-y-4">
                                             <div>
-                                                <label className="block text-sm font-medium text-gray-700 mb-1">社員名 (全角スペース必須)</label>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">社員名 (全角スペース必須・完全一致判定)</label>
                                                 <input 
                                                     value={tempUser.name}
                                                     onChange={(e) => setTempUser({...tempUser, name: e.target.value})}
@@ -1170,19 +1179,53 @@
                                     </button>
                                 </div>
 
-                                {missingUsers.length > 0 && (
-                                    <div className="bg-red-50 border border-red-200 rounded-xl p-6 print-break-inside-avoid result-card">
-                                        <h3 className="text-lg font-bold text-red-800 mb-2">⚠️ 未提出・データなし ({missingUsers.length}名)</h3>
-                                        <p className="text-sm text-red-600 mb-4">以下の社員は定期設定に登録されていますが、CSVファイルからデータが見つかりませんでした。</p>
-                                        <div className="flex flex-wrap gap-2">
-                                            {missingUsers.map((u, i) => (
-                                                <span key={i} className="px-3 py-1 bg-white border border-red-200 text-red-700 rounded-full text-sm font-medium">
-                                                    {u.name}
-                                                </span>
-                                            ))}
+                                <div className="grid grid-cols-2 gap-4 no-print mb-4">
+                                    {missingUsers.length > 0 && (
+                                        <div className="bg-red-50 border border-red-200 rounded-xl p-4">
+                                            <h3 className="text-lg font-bold text-red-800 mb-2">未提出 ({missingUsers.length}名)</h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {missingUsers.map((u, i) => (
+                                                    <button 
+                                                        key={i} 
+                                                        onClick={() => toggleNoUsage(u.name)}
+                                                        className="px-3 py-1 bg-white border border-red-200 text-red-700 rounded-full text-sm font-medium hover:bg-red-100"
+                                                        title="クリックで「利用なし」に登録"
+                                                    >
+                                                        {u.name} <span className="text-xs text-gray-400 ml-1">登録</span>
+                                                    </button>
+                                                ))}
+                                            </div>
                                         </div>
-                                    </div>
-                                )}
+                                    )}
+                                    {duplicateRouteUsers.length > 0 && (
+                                        <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
+                                            <h3 className="text-lg font-bold text-yellow-800 mb-2">定期区間重複あり ({duplicateRouteUsers.length}名)</h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {duplicateRouteUsers.map((u, i) => (
+                                                    <span key={i} className="px-3 py-1 bg-white border border-yellow-200 text-yellow-700 rounded-full text-sm font-medium">
+                                                        {u.name}
+                                                    </span>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+
+                                {/* 印刷用ヘッダー要約 (印刷時のみ表示、画面では上記コンポーネントで表示) */}
+                                <div className="print-area hidden">
+                                    {(missingUsers.length > 0 || duplicateRouteUsers.length > 0) && (
+                                        <div className="mb-4 border-b-2 border-black pb-2">
+                                            <div className="flex gap-8">
+                                                <div>
+                                                    <span className="font-bold">未提出:</span> {missingUsers.map(u => u.name).join(", ")}
+                                                </div>
+                                                <div>
+                                                    <span className="font-bold">定期重複あり:</span> {duplicateRouteUsers.map(u => u.name).join(", ")}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
 
                                 {activeUsers.length === 0 && missingUsers.length === 0 ? (
                                     <div className="text-center text-gray-400 py-20 bg-white rounded-xl border-dashed border-2 border-gray-200 no-print">
@@ -1198,26 +1241,31 @@
                                                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                                         {user.name} 様
                                                         {user.isUnregistered && <span className="text-xs bg-gray-600 text-white px-2 py-0.5 rounded">未登録</span>}
+                                                        {noUsageUsers.includes(user.name) && <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded">利用なし連絡済</span>}
                                                     </h3>
                                                 </div>
                                                 <div className="flex gap-4 items-center">
-                                                    <div className="text-right">
-                                                        <p className="text-xs text-gray-500">定期重複額</p>
-                                                        <p className="font-bold text-xl text-red-600">¥{user.targetAmount.toLocaleString()}</p>
-                                                    </div>
-                                                    <div className="text-right border-l pl-4">
-                                                        <p className="text-xs text-gray-500">利用総額(対象外除く)</p>
-                                                        <p className="font-bold text-lg text-slate-700">¥{user.totalAmount.toLocaleString()}</p>
-                                                    </div>
-                                                    {user.alertCount > 0 ? (
-                                                        <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
-                                                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
-                                                            要確認 {user.alertCount}件
-                                                        </span>
-                                                    ) : (
-                                                        <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
-                                                            問題なし
-                                                        </span>
+                                                    {!noUsageUsers.includes(user.name) && (
+                                                        <>
+                                                            <div className="text-right">
+                                                                <p className="text-xs text-gray-500">定期重複額</p>
+                                                                <p className="font-bold text-xl text-red-600">¥{user.targetAmount.toLocaleString()}</p>
+                                                            </div>
+                                                            <div className="text-right border-l pl-4">
+                                                                <p className="text-xs text-gray-500">利用総額(対象外除く)</p>
+                                                                <p className="font-bold text-lg text-slate-700">¥{user.totalAmount.toLocaleString()}</p>
+                                                            </div>
+                                                            {user.alertCount > 0 ? (
+                                                                <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
+                                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
+                                                                    要確認 {user.alertCount}件
+                                                                </span>
+                                                            ) : (
+                                                                <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
+                                                                    問題なし
+                                                                </span>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -1235,7 +1283,14 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100">
-                                                        {user.records.length === 0 ? (
+                                                        {noUsageUsers.includes(user.name) ? (
+                                                            <tr>
+                                                                <td colSpan="6" className="px-6 py-8 text-center text-green-600 font-bold bg-green-50">
+                                                                    利用なし（連絡済み）
+                                                                    <button onClick={() => toggleNoUsage(user.name)} className="ml-4 text-xs text-gray-400 underline no-print">解除</button>
+                                                                </td>
+                                                            </tr>
+                                                        ) : user.records.length === 0 ? (
                                                             <tr>
                                                                 <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
                                                                     利用履歴なし
