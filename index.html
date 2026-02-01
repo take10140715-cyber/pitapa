@@ -1,0 +1,1122 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PiTaPa利用チェックツール v10</title>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    
+    <!-- Babel -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap');
+        body { font-family: 'Noto Sans JP', sans-serif; background-color: #f3f4f6; }
+        
+        /* スクロールバー */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #f1f1f1; }
+        ::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+        
+        .animate-fade-in { animation: fadeIn 0.3s ease-in-out; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        /* 印刷用スタイル - A4縦に最適化 */
+        @media print {
+            @page { size: A4 portrait; margin: 10mm; }
+            body { background-color: white; -webkit-print-color-adjust: exact; print-color-adjust: exact; font-family: "Hiragino Kaku Gothic ProN", "Meiryo", sans-serif; }
+            
+            /* 印刷時に非表示にする要素 */
+            .no-print, header, nav, .upload-area, .settings-area, .utility-bar, .user-input-form, .alias-input-form, .info-panel { 
+                display: none !important; 
+            }
+            
+            /* 印刷エリアの強制表示とレイアウト */
+            #root, main, .container { 
+                width: 100% !important; 
+                max-width: 100% !important; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                display: block !important;
+                background-color: white !important;
+            }
+            
+            .print-area { 
+                display: block !important; 
+            }
+
+            /* 改ページ制御 */
+            .page-break { page-break-before: always; }
+            .print-break-inside-avoid { break-inside: avoid; page-break-inside: avoid; }
+            
+            /* テーブルデザイン調整 */
+            table { width: 100%; border-collapse: collapse; font-size: 9pt; table-layout: fixed; }
+            th, td { border: 1px solid #000; padding: 4px 6px; word-wrap: break-word; }
+            th { background-color: #f0f0f0 !important; color: #000 !important; font-weight: bold; }
+            
+            /* 色の維持 */
+            .bg-red-50 { background-color: #ffebeb !important; }
+            .text-red-600 { color: #d00000 !important; }
+            
+            /* カードスタイル解除 */
+            .shadow-sm { box-shadow: none !important; border: none !important; }
+            .rounded-xl { border-radius: 0 !important; border: none !important; }
+            
+            /* ヘッダー情報 */
+            .result-header { border-bottom: 2px solid #000; margin-bottom: 10px; padding-bottom: 5px; }
+        }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- 定数・マスタデータ ---
+
+        const STATION_DATA = {
+            "JR西日本": {
+                "京都線・神戸線・琵琶湖線": ["米原", "彦根", "南彦根", "河瀬", "稲枝", "能登川", "安土", "近江八幡", "篠原", "野洲", "守山", "栗東", "草津", "南草津", "瀬田", "石山", "膳所", "大津", "山科", "京都", "西大路", "桂川", "向日町", "長岡京", "山崎", "島本", "高槻", "摂津富田", "ＪＲ総持寺", "茨木", "千里丘", "岸辺", "吹田", "東淀川", "新大阪", "大阪", "塚本", "尼崎", "立花", "甲子園口", "西宮", "さくら夙川", "芦屋", "甲南山手", "摂津本山", "住吉", "六甲道", "摩耶", "灘", "三ノ宮", "元町", "神戸", "兵庫", "新長田", "鷹取", "須磨海浜公園", "須磨", "塩屋", "垂水", "舞子", "朝霧", "明石", "西明石", "大久保", "魚住", "土山", "東加古川", "加古川", "宝殿", "曽根", "ひめじ別所", "御着", "東姫路", "姫路"],
+                "宝塚線(福知山線)": ["尼崎", "塚口", "猪名寺", "伊丹", "北伊丹", "川西池田", "中山寺", "宝塚", "生瀬", "西宮名塩", "武田尾", "道場", "三田", "新三田"],
+                "東西線・学研都市線": ["木津", "西木津", "祝園", "下狛", "ＪＲ三山木", "同志社前", "京田辺", "大住", "松井山手", "長尾", "藤阪", "津田", "河内磐船", "星田", "寝屋川公園", "忍ヶ丘", "四条畷", "野崎", "住道", "鴻池新田", "徳庵", "放出", "鴫野", "京橋", "大阪城北詰", "大阪天満宮", "北新地", "新福島", "海老江", "御幣島", "加島", "尼崎"],
+                "大阪環状線": ["大阪", "福島", "野田", "西九条", "弁天町", "大正", "芦原橋", "今宮", "新今宮", "天王寺", "寺田町", "桃谷", "鶴橋", "玉造", "森ノ宮", "大阪城公園", "京橋", "桜ノ宮", "天満"],
+                "阪和線": ["天王寺", "美章園", "南田辺", "鶴ヶ丘", "長居", "我孫子町", "杉本町", "浅香", "堺市", "三国ヶ丘", "百舌鳥", "上野芝", "津久野", "鳳", "富木", "北信太", "信太山", "和泉府中", "久米田", "下松", "東岸和田", "東貝塚", "和泉橋本", "東佐野", "熊取", "日根野", "りんくうタウン", "関西空港"],
+                "大和路線": ["加茂", "木津", "平城山", "奈良", "郡山", "大和小泉", "法隆寺", "王寺", "三郷", "河内堅上", "高井田", "柏原", "志紀", "八尾", "久宝寺", "加美", "平野", "東部市場前", "天王寺", "新今宮", "今宮", "ＪＲ難波"]
+            },
+            "大阪メトロ": {
+                "御堂筋線": ["江坂", "東三国", "新大阪", "西中島南方", "中津", "梅田", "淀屋橋", "本町", "心斎橋", "なんば", "大国町", "動物園前", "天王寺", "昭和町", "西田辺", "長居", "あびこ", "北花田", "新金岡", "なかもず"],
+                "谷町線": ["大日", "守口", "太子橋今市", "千林大宮", "関目高殿", "野江内代", "都島", "天神橋筋六丁目", "中崎町", "東梅田", "南森町", "天満橋", "谷町四丁目", "谷町六丁目", "谷町九丁目", "四天王寺前夕陽ヶ丘", "天王寺", "阿倍野", "文の里", "田辺", "駒川中野", "平野", "喜連瓜破", "出戸", "長原", "八尾南"],
+                "四つ橋線": ["西梅田", "肥後橋", "本町", "四ツ橋", "なんば", "大国町", "花園町", "岸里", "玉出", "北加賀屋", "住之江公園"],
+                "中央線": ["コスモスクエア", "大阪港", "朝潮橋", "弁天町", "九条", "阿波座", "本町", "堺筋本町", "谷町四丁目", "森ノ宮", "緑橋", "深江橋", "高井田", "長田"],
+                "千日前線": ["野田阪神", "玉川", "阿波座", "西長堀", "桜川", "なんば", "日本橋", "谷町九丁目", "鶴橋", "今里", "新深江", "小路", "北巽", "南巽"],
+                "堺筋線": ["天神橋筋六丁目", "扇町", "南森町", "北浜", "堺筋本町", "長堀橋", "日本橋", "恵美須町", "動物園前", "天下茶屋"],
+                "長堀鶴見緑地線": ["大正", "ドーム前千代崎", "西長堀", "西大橋", "心斎橋", "長堀橋", "松屋町", "谷町六丁目", "玉造", "森ノ宮", "大阪ビジネスパーク", "京橋", "蒲生四丁目", "今福鶴見", "横堤", "鶴見緑地", "門真南"],
+                "今里筋線": ["井高野", "瑞光四丁目", "だいどう豊里", "太子橋今市", "清水", "新森古市", "関目成育", "蒲生四丁目", "鴫野", "緑橋", "今里"],
+                "南港ポートタウン線(ニュートラム)": ["コスモスクエア", "トレードセンター前", "中ふ頭", "ポートタウン西", "ポートタウン東", "フェリーターミナル", "南港東", "南港口", "平林", "住之江公園"]
+            },
+            "北大阪急行": {
+                "南北線": ["箕面萱野", "箕面船場阪大前", "千里中央", "桃山台", "緑地公園", "江坂"]
+            },
+            "大阪モノレール": {
+                "本線": ["大阪空港", "蛍池", "柴原阪大前", "少路", "千里中央", "山田", "万博記念公園", "宇野辺", "南茨木", "沢良宜", "摂津", "南摂津", "大日", "門真市"],
+                "彩都線": ["万博記念公園", "公園東口", "阪大病院前", "豊川", "彩都西"]
+            },
+            "山陽電車": {
+                "本線": ["西代", "板宿", "東須磨", "月見山", "須磨寺", "山陽須磨", "須磨浦公園", "山陽塩屋", "滝の茶屋", "東垂水", "山陽垂水", "霞ヶ丘", "舞子公園", "西舞子", "大蔵谷", "人丸前", "山陽明石", "西新町", "林崎松江海岸", "藤江", "中八木", "江井ヶ島", "西江井ヶ島", "山陽魚住", "東二見", "西二見", "播磨町", "別府", "浜の宮", "尾上の松", "高砂", "荒井", "伊保", "山陽曽根", "大塩", "的形", "八家", "白浜の宮", "妻鹿", "飾磨", "亀山", "手柄", "山陽姫路"],
+                "網干線": ["飾磨", "西飾磨", "夢前川", "広畑", "山陽天満", "平松", "山陽網干"]
+            },
+            "阪急電鉄": {
+                "京都線": ["京都河原町", "烏丸", "大宮", "西院", "西京極", "桂", "洛西口", "東向日", "西向日", "長岡天神", "西山天王山", "大山崎", "水無瀬", "上牧", "高槻市", "富田", "総持寺", "茨木市", "南茨木", "摂津市", "正雀", "相川", "上新庄", "淡路", "崇禅寺", "南方", "十三", "大阪梅田"],
+                "宝塚線": ["宝塚", "清荒神", "売布神社", "中山観音", "山本", "雲雀丘花屋敷", "川西能勢口", "池田", "石橋阪大前", "蛍池", "豊中", "岡町", "曽根", "服部天神", "庄内", "三国", "十三", "中津", "大阪梅田"],
+                "神戸線": ["神戸三宮", "春日野道", "王子公園", "六甲", "御影", "岡本", "芦屋川", "夙川", "西宮北口", "武庫之荘", "塚口", "園田", "神崎川", "十三", "中津", "大阪梅田"],
+                "千里線": ["北千里", "山田", "南千里", "千里山", "関大前", "豊津", "吹田", "下新庄", "淡路", "柴島", "天神橋筋六丁目"]
+            },
+            "阪神電車": {
+                "本線": ["元町", "神戸三宮", "春日野道", "岩屋", "西灘", "大石", "新在家", "石屋川", "御影", "住吉", "魚崎", "青木", "深江", "芦屋", "打出", "香櫨園", "西宮", "今津", "久寿川", "甲子園", "鳴尾・武庫川女子大前", "武庫川", "尼崎センタープール前", "出屋敷", "尼崎", "大物", "杭瀬", "千船", "姫島", "淀川", "野田", "福島", "大阪梅田"],
+                "なんば線": ["大阪難波", "桜川", "ドーム前", "九条", "西九条", "千鳥橋", "伝法", "福", "出来島", "大物", "尼崎"]
+            },
+            "京阪電車": {
+                "本線": ["淀屋橋", "北浜", "天満橋", "京橋", "野江", "関目", "森小路", "千林", "滝井", "土居", "守口市", "西三荘", "門真市", "古川橋", "大和田", "萱島", "寝屋川市", "香里園", "光善寺", "枚方公園", "枚方市", "御殿山", "牧野", "樟葉", "橋本", "石清水八幡宮", "淀", "中書島", "伏見桃山", "丹波橋", "墨染", "藤森", "龍谷大前深草", "伏見稲荷", "鳥羽街道", "東福寺", "七条", "清水五条", "祇園四条", "三条", "神宮丸太町", "出町柳"]
+            },
+            "近鉄電車": {
+                "奈良線": ["大阪難波", "近鉄日本橋", "大阪上本町", "鶴橋", "今里", "布施", "河内永和", "河内小阪", "八戸ノ里", "若江岩田", "河内花園", "東花園", "瓢箪山", "枚岡", "額田", "石切", "生駒", "東生駒", "富雄", "学園前", "菖蒲池", "大和西大寺", "新大宮", "近鉄奈良"],
+                "大阪線": ["大阪上本町", "鶴橋", "今里", "布施", "俊徳道", "長瀬", "弥刀", "久宝寺口", "近鉄八尾", "河内山本", "高安", "恩智", "法善寺", "堅下", "安堂", "河内国分", "大阪教育大前", "関屋", "二上", "近鉄下田", "五位堂", "築山", "大和高田", "松塚", "真菅", "大和八木"],
+                "京都線": ["京都", "東寺", "十条", "上鳥羽口", "竹田", "伏見", "近鉄丹波橋", "桃山御陵前", "向島", "小倉", "伊勢田", "大久保", "久津川", "寺田", "富野荘", "新田辺", "興戸", "三山木", "近鉄宮津", "狛田", "新祝園", "木津川台", "山田川", "高の原", "平城", "大和西大寺"]
+            },
+            "南海電鉄": {
+                "本線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "粉浜", "住吉大社", "住ノ江", "七道", "堺", "湊", "石津川", "諏訪ノ森", "浜寺公園", "羽衣", "高石", "北助松", "松ノ浜", "泉大津", "忠岡", "春木", "和泉大宮", "岸和田", "蛸地蔵", "貝塚", "二色浜", "鶴原", "井原里", "泉佐野", "羽倉崎", "吉見ノ里", "岡田浦", "樽井", "尾崎", "鳥取ノ荘", "箱作", "淡輪", "みさき公園", "孝子", "和歌山大学前", "紀ノ川", "和歌山市"],
+                "高野線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "帝塚山", "住吉東", "沢ノ町", "我孫子前", "浅香山", "堺東", "三国ヶ丘", "百舌鳥八幡", "中百舌鳥", "白鷺", "初芝", "萩原天神", "北野田", "狭山", "大阪狭山市", "金剛", "滝谷", "千代田", "河内長野"]
+            },
+            "京都市営地下鉄": {
+                "烏丸線": ["国際会館", "松ヶ崎", "北山", "北大路", "鞍馬口", "今出川", "丸太町", "烏丸御池", "四条", "五条", "京都", "九条", "十条", "くいな橋", "竹田"],
+                "東西線": ["六地蔵", "石田", "醍醐", "小野", "椥辻", "東野", "山科", "御陵", "蹴上", "東山", "三条京阪", "京都市役所前", "烏丸御池", "二条城前", "二条", "西大路御池", "太秦天神川"]
+            },
+            "神戸市営地下鉄": {
+                "西神・山手線": ["谷上", "新神戸", "三宮", "県庁前", "大倉山", "湊川公園", "上沢", "長田", "新長田", "板宿", "妙法寺", "名谷", "総合運動公園", "学園都市", "伊川谷", "西神南", "西神中央"],
+                "海岸線": ["三宮・花時計前", "旧居留地・大丸前", "みなと元町", "ハーバーランド", "中央市場前", "和田岬", "御崎公園", "苅藻", "駒ヶ林", "新長田"]
+            }
+        };
+
+        const INITIAL_COMPANY_ALIASES = [
+            { from: "大地下鉄", to: "大阪メトロ" },
+            { from: "大地", to: "大阪メトロ" },
+            { from: "大シティ", to: "大阪メトロ" },
+            { from: "神鉄", to: "神戸電鉄" },
+            { from: "山陽", to: "山陽電車" },
+            { from: "北急", to: "北大阪急行" },
+            { from: "Ｊ西", to: "JR西日本" },
+            { from: "モノレール", to: "大阪モノレール" }
+        ];
+
+        const INITIAL_STATION_ALIASES = [
+            { from: "梅田", to: "大阪梅田", company: "" },
+            { from: "河原町", to: "京都河原町", company: "" },
+            { from: "石橋", to: "石橋阪大前", company: "" },
+            { from: "鳴尾", to: "鳴尾・武庫川女子大前", company: "" },
+            { from: "三ノ宮", to: "三ノ宮", company: "" },
+            { from: "三宮", to: "神戸三宮", company: "" },
+            { from: "難波", to: "大阪難波", company: "" },
+            { from: "なんば", to: "なんば", company: "" },
+            { from: "上本町", to: "大阪上本町", company: "" },
+            { from: "阿部野橋", to: "大阪阿部野橋", company: "" },
+            { from: "柴原", to: "柴原阪大前", company: "" },
+            { from: "箕面", to: "箕面萱野", company: "" },
+            { from: "西代", to: "西代", company: "" }
+        ];
+
+        const INITIAL_HOLIDAYS = [
+            "2024-01-01", "2024-01-08", "2024-02-11", "2024-02-12", "2024-02-23", "2024-03-20", "2024-04-29", "2024-05-03", "2024-05-04", "2024-05-05", "2024-05-06", "2024-07-15", "2024-08-11", "2024-08-12", "2024-09-16", "2024-09-22", "2024-09-23", "2024-10-14", "2024-11-03", "2024-11-04", "2024-11-23",
+            "2025-01-01", "2025-01-13", "2025-02-11", "2025-02-23", "2025-02-24", "2025-03-20", "2025-04-29", "2025-05-03", "2025-05-04", "2025-05-05", "2025-05-06", "2025-07-21", "2025-08-11", "2025-09-15", "2025-09-23", "2025-10-13", "2025-11-03", "2025-11-23", "2025-11-24",
+            "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-07-20", "2026-08-11", "2026-09-21", "2026-09-22", "2026-09-23", "2026-10-12", "2026-11-03", "2026-11-23"
+        ];
+
+        // --- ユーティリティ ---
+
+        const checkIsHoliday = (dateStr, holidayList) => {
+            const date = new Date(dateStr);
+            if (isNaN(date.getTime())) return false;
+            const day = date.getDay();
+            const month = date.getMonth() + 1;
+            const d = date.getDate();
+            if (day === 0 || day === 6) return true;
+            if ((month === 12 && d >= 29) || (month === 1 && d <= 3)) return true;
+            const formattedDate = dateStr.replace(/\//g, '-');
+            const isoDate = date.toISOString().split('T')[0]; 
+            return holidayList.includes(formattedDate) || holidayList.includes(isoDate);
+        };
+
+        const parseCSV = (text, fileName) => {
+            const lines = text.split(/\r\n|\n/);
+            const results = [];
+            let currentName = "不明";
+            const nameRegex = /【(.+?)\s*様ご利用分】/;
+
+            lines.forEach((line, index) => {
+                const cleanLine = line.replace(/"/g, "");
+                const nameMatch = cleanLine.match(nameRegex);
+                if (nameMatch) {
+                    currentName = nameMatch[1].replace(/\s+/g, ""); 
+                    return;
+                }
+                const columns = line.split(",").map(c => c.trim().replace(/"/g, ""));
+                if (columns.length >= 5 && columns[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
+                    const entryTime = columns[1];
+                    const exitTime = columns[2];
+                    let timeDisplay = "";
+                    if (entryTime && exitTime) timeDisplay = `${entryTime} - ${exitTime}`;
+                    else if (entryTime) timeDisplay = `${entryTime} -`;
+                    else if (exitTime) timeDisplay = `- ${exitTime}`;
+
+                    results.push({
+                        id: `${fileName}-${index}`,
+                        name: currentName,
+                        date: columns[0],
+                        time: timeDisplay,
+                        content: columns[3],
+                        amount: parseInt(columns[4]),
+                        note: columns[5] || "",
+                        fileName
+                    });
+                }
+            });
+            return results;
+        };
+
+        // 事業者名のゆらぎ解決
+        const resolveCompanyAlias = (prefix, companyAliases) => {
+            const found = companyAliases.find(a => a.from === prefix || prefix.includes(a.from));
+            return found ? found.to : prefix;
+        };
+
+        // 駅名のゆらぎ解決（ファジーマッチ対応）
+        const resolveStationAlias = (stationName, aliases, targetCompanyPrefix, companyAliases) => {
+            // 1. まず事業者名を正規化
+            const normalizedCompany = resolveCompanyAlias(targetCompanyPrefix, companyAliases);
+            
+            // 2. ゆらぎ設定(aliases)から完全一致検索
+            const found = aliases.find(a => {
+                const nameMatch = a.from === stationName;
+                const companyMatch = !a.company || normalizedCompany.includes(a.company) || targetCompanyPrefix.includes(a.company);
+                return nameMatch && companyMatch;
+            });
+            if (found) return found.to;
+
+            // 3. ファジーマッチ（3文字以上一致）の自動判定
+            // 駅名マスタ(STATION_DATA)の中から、対象事業者の駅リストを探す
+            if (STATION_DATA[normalizedCompany]) {
+                const lines = Object.values(STATION_DATA[normalizedCompany]);
+                for (const stations of lines) {
+                    for (const masterStation of stations) {
+                        // 文字列を含んでいるかチェック
+                        if (masterStation.includes(stationName) || stationName.includes(masterStation)) {
+                            // 共通部分の長さをチェック
+                            let matchCount = 0;
+                            const minLen = Math.min(masterStation.length, stationName.length);
+                            // 簡易的な共通文字数カウント（連続でなくてもよいが、ここでは連続性を重視せず文字の一致を見る）
+                            // ただし「大阪」「新大阪」などの誤爆を防ぐため、前方/後方一致や含む関係を重視
+                            if (masterStation.indexOf(stationName) !== -1 || stationName.indexOf(masterStation) !== -1) {
+                                matchCount = minLen; // 包含関係なら短い方の長さが一致数
+                            }
+                            
+                            // 3文字以上一致していれば採用
+                            if (matchCount >= 3) {
+                                return masterStation;
+                            }
+                        }
+                    }
+                }
+            }
+
+            return stationName;
+        };
+
+        const parseContent = (content, aliases, companyAliases) => {
+            if (!content.includes("－") && !content.includes("-")) return null;
+            const parts = content.split(/[-－]/);
+            if (parts.length !== 2) return null;
+
+            const extractStation = (raw) => {
+                const chunks = raw.trim().split(/[\s　]+/);
+                if (chunks.length >= 2) {
+                    return { prefix: chunks[0], station: chunks.slice(1).join("") };
+                }
+                return { prefix: "", station: raw.trim() };
+            };
+
+            const fromInfo = extractStation(parts[0]);
+            const toInfo = extractStation(parts[1]);
+            
+            const fromStation = resolveStationAlias(fromInfo.station, aliases, fromInfo.prefix, companyAliases);
+            const toStation = resolveStationAlias(toInfo.station, aliases, toInfo.prefix, companyAliases);
+
+            return {
+                from: fromStation,
+                to: toStation,
+                companyPrefix: fromInfo.prefix || toInfo.prefix 
+            };
+        };
+
+        const checkStationExists = (stationName, companyPrefix, companyAliases) => {
+            const companyName = resolveCompanyAlias(companyPrefix, companyAliases);
+            
+            // 会社不明でも駅名検索（相互乗り入れやマッピング漏れ救済のため全社検索）
+            const allCompanies = Object.keys(STATION_DATA);
+            let exists = false;
+
+            // まず指定された会社で探す
+            if (companyName && STATION_DATA[companyName]) {
+                Object.values(STATION_DATA[companyName]).forEach(lineStations => {
+                    if (lineStations.includes(stationName)) exists = true;
+                });
+            }
+
+            // 見つからなければ全社検索 (「正式名称と同名」ならOKとするため)
+            if (!exists) {
+                allCompanies.forEach(c => {
+                    Object.values(STATION_DATA[c]).forEach(lineStations => {
+                        if (lineStations.includes(stationName)) exists = true;
+                    });
+                });
+            }
+            
+            return exists;
+        };
+
+        const checkRouteOverlap = (usage, pass, companyAliases) => {
+            const usageCompany = resolveCompanyAlias(usage.companyPrefix, companyAliases) || "その他";
+            let isCompanyMatch = (pass.company === usageCompany);
+
+            if (isCompanyMatch && STATION_DATA[pass.company] && STATION_DATA[pass.company][pass.line]) {
+                const stations = STATION_DATA[pass.company][pass.line];
+                const pMin = Math.min(stations.indexOf(pass.from), stations.indexOf(pass.to));
+                const pMax = Math.max(stations.indexOf(pass.from), stations.indexOf(pass.to));
+                const uMin = Math.min(stations.indexOf(usage.from), stations.indexOf(usage.to));
+                const uMax = Math.max(stations.indexOf(usage.from), stations.indexOf(usage.to));
+
+                if (pMin !== -1 && pMax !== -1 && uMin !== -1 && uMax !== -1) {
+                    const overlapStartIdx = Math.max(pMin, uMin);
+                    const overlapEndIdx = Math.min(pMax, uMax);
+                    if (overlapEndIdx > overlapStartIdx) {
+                        return {
+                            isOverlap: true,
+                            overlapText: `${stations[overlapStartIdx]}⇔${stations[overlapEndIdx]}`
+                        };
+                    }
+                    return { isOverlap: false };
+                }
+            }
+
+            const pSet = new Set([pass.from, pass.to]);
+            if (pSet.has(usage.from) && pSet.has(usage.to)) {
+                return { isOverlap: true, overlapText: "定期区間内" };
+            }
+            return { isOverlap: false };
+        };
+
+        // --- Icons ---
+        const Icons = {
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+            UploadFile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+            Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        };
+
+        // --- Components ---
+
+        const AlertBadge = ({ type }) => {
+            const styles = {
+                holiday: "bg-red-100 text-red-800 border-red-200",
+                route: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                bus: "bg-gray-100 text-gray-600",
+                unknown: "bg-orange-100 text-orange-800 border-orange-200"
+            };
+            const labels = {
+                holiday: "休日",
+                route: "定期重複",
+                bus: "対象外",
+                unknown: "駅名不明"
+            };
+            return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mr-2 ${styles[type] || ""}`}>
+                    {labels[type]}
+                </span>
+            );
+        };
+
+        const App = () => {
+            const [activeTab, setActiveTab] = useState('upload');
+            const [files, setFiles] = useState([]);
+            const [parsedData, setParsedData] = useState([]);
+            
+            // Settings
+            const [users, setUsers] = useState([]);
+            const [holidays, setHolidays] = useState(INITIAL_HOLIDAYS);
+            const [holidayInput, setHolidayInput] = useState(INITIAL_HOLIDAYS.join('\n'));
+            const [aliases, setAliases] = useState(INITIAL_STATION_ALIASES);
+            const [companyAliases, setCompanyAliases] = useState(INITIAL_COMPANY_ALIASES);
+            
+            // Temporary states for inputs
+            const [tempUser, setTempUser] = useState({ name: "", passes: [] });
+            const [editingPass, setEditingPass] = useState({ company: "JR西日本", line: "", from: "", to: "" });
+            const [newAlias, setNewAlias] = useState({ from: "", to: "", company: "" });
+            const [newCompanyAlias, setNewCompanyAlias] = useState({ from: "", to: "" });
+
+            // Derived
+            const availableLines = useMemo(() => {
+                if (STATION_DATA[editingPass.company]) return Object.keys(STATION_DATA[editingPass.company]);
+                return [];
+            }, [editingPass.company]);
+
+            const availableStations = useMemo(() => {
+                if (STATION_DATA[editingPass.company] && STATION_DATA[editingPass.company][editingPass.line]) {
+                    return STATION_DATA[editingPass.company][editingPass.line];
+                }
+                return [];
+            }, [editingPass.company, editingPass.line]);
+
+            const handleFileUpload = (e) => {
+                const uploadedFiles = Array.from(e.target.files);
+                setFiles(prev => [...prev, ...uploadedFiles]);
+                uploadedFiles.forEach(file => {
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        const text = event.target.result;
+                        const data = parseCSV(text, file.name);
+                        setParsedData(prev => [...prev, ...data]);
+                    };
+                    reader.readAsText(file, "Shift_JIS"); 
+                });
+            };
+
+            const updateHolidays = () => {
+                const list = holidayInput.split('\n').map(s => s.trim()).filter(s => s);
+                setHolidays(list);
+                alert('休日設定を更新しました');
+            };
+
+            const addAlias = () => {
+                if(newAlias.from && newAlias.to) {
+                    setAliases([...aliases, newAlias]);
+                    setNewAlias({from: "", to: "", company: ""});
+                }
+            };
+            const removeAlias = (index) => {
+                setAliases(aliases.filter((_, i) => i !== index));
+            };
+
+            const addCompanyAlias = () => {
+                if(newCompanyAlias.from && newCompanyAlias.to) {
+                    setCompanyAliases([...companyAliases, newCompanyAlias]);
+                    setNewCompanyAlias({from: "", to: ""});
+                }
+            };
+            const removeCompanyAlias = (index) => {
+                setCompanyAliases(companyAliases.filter((_, i) => i !== index));
+            };
+
+            // Export Settings as CSV (Structured)
+            const handleExportSettings = () => {
+                let csvContent = "\uFEFF"; // BOM
+                
+                csvContent += "# === ユーザー定期設定 ===\n";
+                csvContent += "# Type, Name, Company, Line, From, To\n";
+                users.forEach(u => {
+                    u.passes.forEach(p => {
+                        csvContent += `USER,${u.displayName || u.name},${p.company},${p.line},${p.from},${p.to}\n`;
+                    });
+                });
+                
+                csvContent += "\n# === 休日設定 ===\n";
+                csvContent += "# Type, Date\n";
+                holidays.forEach(h => {
+                    csvContent += `HOLIDAY,${h}\n`;
+                });
+                
+                csvContent += "\n# === 事業者名ゆらぎ設定 ===\n";
+                csvContent += "# Type, From, To\n";
+                companyAliases.forEach(ca => {
+                    csvContent += `COMPANY_ALIAS,${ca.from},${ca.to}\n`;
+                });
+
+                csvContent += "\n# === 駅名ゆらぎ設定 ===\n";
+                csvContent += "# Type, From, To, Company(Optional)\n";
+                aliases.forEach(a => {
+                    csvContent += `ALIAS,${a.from},${a.to},${a.company || ''}\n`;
+                });
+
+                const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = 'pitapa_checker_settings.csv';
+                a.click();
+                URL.revokeObjectURL(url);
+            };
+
+            const handleImportSettings = (e) => {
+                const file = e.target.files[0];
+                if (!file) return;
+                const reader = new FileReader();
+                reader.onload = (ev) => {
+                    try {
+                        const text = ev.target.result;
+                        const lines = text.split(/\r\n|\n/);
+                        
+                        const newUsers = [];
+                        const newHolidays = [];
+                        const newAliases = [];
+                        const newCompanyAliases = [];
+                        
+                        lines.forEach(line => {
+                            if (!line.trim() || line.startsWith("#")) return; // Skip empty and comments
+                            const cols = line.split(',').map(c => c.trim());
+                            const type = cols[0];
+                            
+                            if (type === 'USER' && cols.length >= 6) {
+                                const name = cols[1];
+                                const pass = { company: cols[2], line: cols[3], from: cols[4], to: cols[5] };
+                                const existingUser = newUsers.find(u => u.displayName === name);
+                                if (existingUser) {
+                                    existingUser.passes.push(pass);
+                                } else {
+                                    newUsers.push({
+                                        id: Date.now() + Math.random(),
+                                        displayName: name,
+                                        name: name.replace(/\s+/g, ""),
+                                        passes: [pass]
+                                    });
+                                }
+                            } else if (type === 'HOLIDAY' && cols.length >= 2) {
+                                newHolidays.push(cols[1]);
+                            } else if (type === 'COMPANY_ALIAS' && cols.length >= 3) {
+                                newCompanyAliases.push({ from: cols[1], to: cols[2] });
+                            } else if (type === 'ALIAS' && cols.length >= 3) {
+                                newAliases.push({ from: cols[1], to: cols[2], company: cols[3] || "" });
+                            }
+                        });
+
+                        if (newUsers.length > 0) setUsers(newUsers);
+                        if (newHolidays.length > 0) {
+                            setHolidays(newHolidays);
+                            setHolidayInput(newHolidays.join('\n'));
+                        }
+                        if (newAliases.length > 0) setAliases(newAliases);
+                        if (newCompanyAliases.length > 0) setCompanyAliases(newCompanyAliases);
+                        
+                        alert('設定（CSV）を読み込みました');
+                    } catch (err) {
+                        alert('読み込みに失敗しました: ' + err);
+                    }
+                };
+                reader.readAsText(file);
+                e.target.value = '';
+            };
+
+            const handleAddPass = () => {
+                if (!editingPass.from || !editingPass.to) return;
+                setTempUser(prev => ({
+                    ...prev,
+                    passes: [...prev.passes, { ...editingPass }]
+                }));
+                setEditingPass(prev => ({ ...prev, from: "", to: "" }));
+            };
+            const handleRemovePass = (idx) => {
+                setTempUser(prev => ({
+                    ...prev,
+                    passes: prev.passes.filter((_, i) => i !== idx)
+                }));
+            };
+            const handleSaveUser = () => {
+                if (!tempUser.name) {
+                    alert("社員名を入力してください");
+                    return;
+                }
+                if (!tempUser.name.match(/　/)) {
+                    alert("姓名の間には全角スペースを入れてください（例：山口　武志）");
+                    return;
+                }
+                const newUser = {
+                    id: Date.now(),
+                    displayName: tempUser.name,
+                    name: tempUser.name.replace(/\s+/g, ""),
+                    passes: tempUser.passes
+                };
+                setUsers([...users, newUser]);
+                setTempUser({ name: "", passes: [] }); 
+                setEditingPass({ company: "JR西日本", line: Object.keys(STATION_DATA["JR西日本"])[0], from: "", to: "" });
+            };
+            const removeUser = (id) => {
+                setUsers(users.filter(u => u.id !== id));
+            };
+
+            // Main Logic
+            const analyzedData = useMemo(() => {
+                return parsedData.map(record => {
+                    const alerts = [];
+                    let isIgnored = false;
+                    let overlapInfoText = "";
+
+                    const isBus = record.content.includes("バス");
+                    const usageInfo = parseContent(record.content, aliases, companyAliases);
+                    
+                    if (isBus || !usageInfo) {
+                        isIgnored = true;
+                        alerts.push('bus');
+                    } else {
+                        if (usageInfo && !isBus) {
+                            const fromExists = checkStationExists(usageInfo.from, usageInfo.companyPrefix, companyAliases);
+                            const toExists = checkStationExists(usageInfo.to, usageInfo.companyPrefix, companyAliases);
+                            if (!fromExists || !toExists) {
+                                alerts.push('unknown');
+                            }
+                        }
+                    }
+
+                    if (!isIgnored || (usageInfo && !isBus)) { 
+                         if (checkIsHoliday(record.date, holidays)) {
+                            alerts.push('holiday');
+                        }
+
+                        const user = users.find(u => record.name.includes(u.name) || u.name.includes(record.name));
+                        if (user && user.passes.length > 0 && usageInfo) {
+                            for (const pass of user.passes) {
+                                const check = checkRouteOverlap(usageInfo, pass, companyAliases);
+                                if (check.isOverlap) {
+                                    if (record.amount > 0) {
+                                        alerts.push('route');
+                                        overlapInfoText = check.overlapText || "";
+                                    }
+                                    break;
+                                }
+                            }
+                        }
+                    }
+
+                    return { ...record, alerts, isIgnored, overlapInfoText };
+                });
+            }, [parsedData, users, holidays, aliases, companyAliases]);
+
+            const userSummaries = useMemo(() => {
+                const map = {};
+                users.forEach(u => {
+                    map[u.name] = { 
+                        name: u.displayName || u.name, 
+                        totalAmount: 0, 
+                        targetAmount: 0, 
+                        alertCount: 0, 
+                        records: [],
+                        isSubmitted: false 
+                    };
+                });
+
+                analyzedData.forEach(row => {
+                    if (!map[row.name]) {
+                        map[row.name] = { 
+                            name: row.name, 
+                            totalAmount: 0, 
+                            targetAmount: 0, 
+                            alertCount: 0, 
+                            records: [],
+                            isSubmitted: true,
+                            isUnregistered: true
+                        };
+                    }
+                    
+                    map[row.name].isSubmitted = true;
+                    map[row.name].records.push(row);
+
+                    if (!row.isIgnored) {
+                         map[row.name].totalAmount += row.amount;
+                         if (row.alerts.length > 0) map[row.name].alertCount++;
+                         if (row.alerts.includes('route')) {
+                             map[row.name].targetAmount += row.amount;
+                         }
+                    }
+                });
+                return Object.values(map);
+            }, [analyzedData, users]);
+
+            const missingUsers = userSummaries.filter(u => !u.isSubmitted && !u.isUnregistered);
+            const activeUsers = userSummaries.filter(u => u.isSubmitted);
+
+            // 印刷処理: シンプルにwindow.print()を呼ぶ
+            const handlePrint = () => {
+                window.print();
+            };
+
+            return (
+                <div className="min-h-screen flex flex-col bg-gray-50 text-gray-800">
+                    <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
+                        <div className="container mx-auto flex items-center justify-between">
+                            <h1 className="text-xl font-bold flex items-center gap-2">
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v10
+                            </h1>
+                            <nav className="flex space-x-2">
+                                {[
+                                    { id: 'upload', label: '1. CSV取込', icon: Icons.Upload },
+                                    { id: 'users', label: '2. 定期・設定', icon: Icons.Settings },
+                                    { id: 'report', label: '3. 結果確認', icon: Icons.Check }
+                                ].map(tab => (
+                                    <button 
+                                        key={tab.id}
+                                        onClick={() => setActiveTab(tab.id)}
+                                        className={`px-4 py-2 rounded-lg flex items-center gap-2 transition ${
+                                            activeTab === tab.id ? 'bg-blue-600 shadow-inner' : 'hover:bg-slate-700'
+                                        }`}
+                                    >
+                                        <tab.icon /> {tab.label}
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
+                    </header>
+
+                    <main className="container mx-auto p-6 flex-grow print-area">
+                        {activeTab === 'upload' && (
+                            <div className="max-w-2xl mx-auto animate-fade-in upload-area">
+                                <div className="bg-white p-10 rounded-xl shadow-sm border-2 border-dashed border-gray-300 text-center hover:border-blue-400 transition">
+                                    <div className="mb-6 text-gray-400">
+                                        <div className="flex justify-center mb-4"><span className="p-4 bg-gray-100 rounded-full"><Icons.Upload /></span></div>
+                                        <p className="text-lg font-medium text-gray-600">CSVファイルをドラッグ＆ドロップ</p>
+                                        <p className="text-sm mt-2">※ 文字化けを防ぐため自動的にShift-JISで読み込みます</p>
+                                    </div>
+                                    <div className="flex justify-center gap-4">
+                                        <label className="cursor-pointer bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition shadow">
+                                            ファイルを選択
+                                            <input type="file" multiple accept=".csv" onChange={handleFileUpload} className="hidden" />
+                                        </label>
+                                        <label className="cursor-pointer bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition shadow">
+                                            フォルダを選択
+                                            <input type="file" webkitdirectory="" multiple onChange={handleFileUpload} className="hidden" />
+                                        </label>
+                                    </div>
+                                </div>
+                                {files.length > 0 && (
+                                    <div className="mt-6 bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+                                        <h3 className="font-bold text-gray-700 mb-4 border-b pb-2">読み込み済み ({files.length}件)</h3>
+                                        <ul className="space-y-2 max-h-40 overflow-y-auto text-sm text-gray-600">
+                                            {files.map((f, i) => <li key={i} className="flex items-center gap-2"><span className="w-2 h-2 bg-green-400 rounded-full"></span> {f.name}</li>)}
+                                        </ul>
+                                        <div className="mt-6 text-center">
+                                            <button onClick={() => setActiveTab('users')} className="bg-slate-800 text-white px-8 py-3 rounded-lg hover:bg-slate-900 transition font-bold shadow-lg">
+                                                次へ：定期設定を行う
+                                            </button>
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {activeTab === 'users' && (
+                            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 settings-area">
+                                <div className="lg:col-span-2 space-y-6">
+                                    <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
+                                        <span className="font-bold text-gray-700">設定データ操作</span>
+                                        <div className="flex gap-2">
+                                            <button onClick={handleExportSettings} className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border">
+                                                <Icons.Download /> 保存(CSV)
+                                            </button>
+                                            <label className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border cursor-pointer">
+                                                <Icons.UploadFile /> 読込(CSV)
+                                                <input type="file" accept=".csv" onChange={handleImportSettings} className="hidden" />
+                                            </label>
+                                        </div>
+                                    </div>
+
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 user-input-form">
+                                        <h2 className="text-lg font-bold mb-4 text-gray-800 border-b pb-2">新規社員・定期登録</h2>
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="block text-sm font-medium text-gray-700 mb-1">社員名 (全角スペース必須)</label>
+                                                <input 
+                                                    value={tempUser.name}
+                                                    onChange={(e) => setTempUser({...tempUser, name: e.target.value})}
+                                                    placeholder="例: 山口　武志" 
+                                                    className="w-full border border-gray-300 p-2 rounded focus:ring-2 focus:ring-blue-200 outline-none" 
+                                                />
+                                            </div>
+                                            
+                                            <div className="bg-gray-50 p-4 rounded-lg border border-gray-200">
+                                                <div className="flex justify-between items-center mb-2">
+                                                    <span className="text-sm font-bold text-gray-600">定期区間の追加</span>
+                                                </div>
+                                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+                                                    <select 
+                                                        className="border p-2 rounded text-sm"
+                                                        value={editingPass.company}
+                                                        onChange={(e) => setEditingPass({...editingPass, company: e.target.value, line: "", from: "", to: ""})}
+                                                    >
+                                                        {Object.keys(STATION_DATA).map(c => <option key={c} value={c}>{c}</option>)}
+                                                        <option value="その他">その他（手動入力）</option>
+                                                    </select>
+                                                    
+                                                    {availableLines.length > 0 ? (
+                                                        <select 
+                                                            className="border p-2 rounded text-sm"
+                                                            value={editingPass.line}
+                                                            onChange={(e) => setEditingPass({...editingPass, line: e.target.value, from: "", to: ""})}
+                                                        >
+                                                            <option value="">路線を選択...</option>
+                                                            {availableLines.map(l => <option key={l} value={l}>{l}</option>)}
+                                                        </select>
+                                                    ) : (
+                                                        <input 
+                                                            placeholder="路線名 (任意)" 
+                                                            className="border p-2 rounded text-sm"
+                                                            value={editingPass.line}
+                                                            onChange={(e) => setEditingPass({...editingPass, line: e.target.value})}
+                                                        />
+                                                    )}
+                                                </div>
+                                                <div className="grid grid-cols-2 gap-3 mb-3">
+                                                    <div>
+                                                        <input 
+                                                            list="station-list-from"
+                                                            placeholder="発駅" 
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={editingPass.from}
+                                                            onChange={(e) => setEditingPass({...editingPass, from: e.target.value})}
+                                                        />
+                                                        <datalist id="station-list-from">
+                                                            {availableStations.map(s => <option key={s} value={s} />)}
+                                                        </datalist>
+                                                    </div>
+                                                    <div>
+                                                        <input 
+                                                            list="station-list-to"
+                                                            placeholder="着駅" 
+                                                            className="w-full border p-2 rounded text-sm"
+                                                            value={editingPass.to}
+                                                            onChange={(e) => setEditingPass({...editingPass, to: e.target.value})}
+                                                        />
+                                                        <datalist id="station-list-to">
+                                                            {availableStations.map(s => <option key={s} value={s} />)}
+                                                        </datalist>
+                                                    </div>
+                                                </div>
+                                                <button 
+                                                    onClick={handleAddPass}
+                                                    disabled={!editingPass.from || !editingPass.to}
+                                                    className="w-full bg-white border border-blue-600 text-blue-600 py-2 rounded text-sm hover:bg-blue-50 disabled:opacity-50"
+                                                >
+                                                    + 区間リストに追加
+                                                </button>
+                                            </div>
+
+                                            {tempUser.passes.length > 0 && (
+                                                <div className="space-y-2">
+                                                    {tempUser.passes.map((p, idx) => (
+                                                        <div key={idx} className="flex justify-between items-center text-sm bg-blue-50 p-2 rounded border border-blue-100">
+                                                            <span><span className="font-bold text-blue-800">[{p.company}]</span> {p.line} {p.from} ⇔ {p.to}</span>
+                                                            <button onClick={() => handleRemovePass(idx)} className="text-red-500 hover:text-red-700"><Icons.Trash/></button>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            )}
+
+                                            <button 
+                                                onClick={handleSaveUser}
+                                                className="w-full bg-blue-600 text-white py-3 rounded-lg font-bold shadow hover:bg-blue-700 transition"
+                                            >
+                                                この内容で社員を登録
+                                            </button>
+                                        </div>
+                                    </div>
+
+                                    {/* 登録済みリスト */}
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                                        <h3 className="font-bold text-gray-700 mb-4">登録済み社員リスト ({users.length}名)</h3>
+                                        <div className="space-y-4 max-h-96 overflow-y-auto">
+                                            {users.length === 0 && <p className="text-gray-400 text-sm">登録された社員はいません。</p>}
+                                            {users.map(u => (
+                                                <div key={u.id} className="border rounded-lg p-4 relative hover:shadow-md transition">
+                                                    <button onClick={() => removeUser(u.id)} className="absolute top-2 right-2 text-gray-400 hover:text-red-500"><Icons.Trash /></button>
+                                                    <h4 className="font-bold text-lg mb-2">{u.displayName || u.name}</h4>
+                                                    <ul className="text-sm space-y-1">
+                                                        {u.passes.map((p, i) => (
+                                                            <li key={i} className="text-gray-600">
+                                                                <span className="inline-block px-2 py-0.5 bg-gray-100 rounded text-xs mr-2">{p.company}</span>
+                                                                {p.from} ↔ {p.to} ({p.line})
+                                                            </li>
+                                                        ))}
+                                                    </ul>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* 右カラム: 休日・駅名ゆらぎ設定 */}
+                                <div className="space-y-6">
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200">
+                                        <h2 className="text-lg font-bold mb-4 text-gray-800">休日設定</h2>
+                                        <p className="text-xs text-gray-500 mb-2">YYYY-MM-DD形式で入力。土日は自動判定。</p>
+                                        <textarea 
+                                            className="w-full h-32 border p-2 rounded font-mono text-xs focus:ring-2 focus:ring-blue-200 outline-none"
+                                            value={holidayInput}
+                                            onChange={(e) => setHolidayInput(e.target.value)}
+                                        ></textarea>
+                                        <button onClick={updateHolidays} className="mt-2 w-full bg-gray-600 text-white py-2 rounded text-sm hover:bg-gray-700">
+                                            設定を保存
+                                        </button>
+                                    </div>
+
+                                    {/* 事業者名ゆらぎ */}
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 alias-input-form">
+                                        <h2 className="text-lg font-bold mb-4 text-gray-800">事業者名変換設定</h2>
+                                        <div className="flex gap-2 mb-2 items-center">
+                                            <input 
+                                                className="w-1/2 border p-1 rounded text-sm" 
+                                                placeholder="元 (例: 大地下鉄)" 
+                                                value={newCompanyAlias.from}
+                                                onChange={(e) => setNewCompanyAlias({...newCompanyAlias, from: e.target.value})}
+                                            />
+                                            <input 
+                                                className="w-1/2 border p-1 rounded text-sm" 
+                                                placeholder="変換後 (例: 大阪メトロ)" 
+                                                value={newCompanyAlias.to}
+                                                onChange={(e) => setNewCompanyAlias({...newCompanyAlias, to: e.target.value})}
+                                            />
+                                            <button onClick={addCompanyAlias} className="bg-blue-600 text-white p-2 rounded"><Icons.Plus /></button>
+                                        </div>
+                                        <div className="max-h-32 overflow-y-auto border-t pt-2">
+                                            <table className="w-full text-xs">
+                                                <thead><tr className="text-left text-gray-500"><th>元</th><th>変換後</th><th></th></tr></thead>
+                                                <tbody>
+                                                    {companyAliases.map((a, i) => (
+                                                        <tr key={i} className="border-b">
+                                                            <td className="py-1">{a.from}</td>
+                                                            <td className="py-1">{a.to}</td>
+                                                            <td className="text-right"><button onClick={() => removeCompanyAlias(i)} className="text-red-500">×</button></td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+
+                                    {/* 駅名ゆらぎ */}
+                                    <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-200 alias-input-form">
+                                        <h2 className="text-lg font-bold mb-4 text-gray-800">駅名変換設定（ゆらぎ）</h2>
+                                        <div className="flex gap-2 mb-2 items-center">
+                                            <div className="flex-1 space-y-1">
+                                                <input 
+                                                    className="w-full border p-1 rounded text-sm" 
+                                                    placeholder="略称 (例: 梅田)" 
+                                                    value={newAlias.from}
+                                                    onChange={(e) => setNewAlias({...newAlias, from: e.target.value})}
+                                                />
+                                                <input 
+                                                    className="w-full border p-1 rounded text-sm" 
+                                                    placeholder="正式 (例: 大阪梅田)" 
+                                                    value={newAlias.to}
+                                                    onChange={(e) => setNewAlias({...newAlias, to: e.target.value})}
+                                                />
+                                                <input 
+                                                    className="w-full border p-1 rounded text-sm" 
+                                                    placeholder="対象事業者 (任意, 例: 阪急)" 
+                                                    value={newAlias.company}
+                                                    onChange={(e) => setNewAlias({...newAlias, company: e.target.value})}
+                                                />
+                                            </div>
+                                            <button onClick={addAlias} className="bg-blue-600 text-white p-2 rounded h-full"><Icons.Plus /></button>
+                                        </div>
+                                        <div className="max-h-64 overflow-y-auto border-t pt-2">
+                                            <table className="w-full text-xs">
+                                                <thead><tr className="text-left text-gray-500"><th>略称</th><th>正式</th><th>事業者</th><th></th></tr></thead>
+                                                <tbody>
+                                                    {aliases.map((a, i) => (
+                                                        <tr key={i} className="border-b">
+                                                            <td className="py-1">{a.from}</td>
+                                                            <td className="py-1">{a.to}</td>
+                                                            <td className="py-1 text-gray-400">{a.company || '-'}</td>
+                                                            <td className="text-right">
+                                                                <button onClick={() => removeAlias(i)} className="text-red-500 hover:text-red-700">×</button>
+                                                            </td>
+                                                        </tr>
+                                                    ))}
+                                                </tbody>
+                                            </table>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+
+                        {activeTab === 'report' && (
+                            <div className="space-y-8 animate-fade-in">
+                                <div className="flex justify-end items-center gap-2 no-print info-panel">
+                                    <span className="text-xs text-red-500 bg-red-50 px-2 py-1 rounded border border-red-200">
+                                        ※ファイルをPCに保存し、ブラウザで開いてから印刷してください
+                                    </span>
+                                    <button 
+                                        type="button"
+                                        onClick={handlePrint}
+                                        className="flex items-center gap-2 bg-slate-700 text-white px-4 py-2 rounded-lg hover:bg-slate-800 shadow transition"
+                                    >
+                                        <Icons.Printer /> 印刷プレビュー
+                                    </button>
+                                </div>
+
+                                {missingUsers.length > 0 && (
+                                    <div className="bg-red-50 border border-red-200 rounded-xl p-6 print-break-inside-avoid result-card">
+                                        <h3 className="text-lg font-bold text-red-800 mb-2">⚠️ 未提出・データなし ({missingUsers.length}名)</h3>
+                                        <p className="text-sm text-red-600 mb-4">以下の社員は定期設定に登録されていますが、CSVファイルからデータが見つかりませんでした。</p>
+                                        <div className="flex flex-wrap gap-2">
+                                            {missingUsers.map((u, i) => (
+                                                <span key={i} className="px-3 py-1 bg-white border border-red-200 text-red-700 rounded-full text-sm font-medium">
+                                                    {u.name}
+                                                </span>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {activeUsers.length === 0 && missingUsers.length === 0 ? (
+                                    <div className="text-center text-gray-400 py-20 bg-white rounded-xl border-dashed border-2 border-gray-200 no-print">
+                                        <p className="text-xl mb-2">データが表示されませんか？</p>
+                                        <p className="text-sm">CSVファイルを読み込み、社員登録を行ってください。</p>
+                                        <button onClick={() => setActiveTab('upload')} className="mt-4 text-blue-600 underline">アップロード画面へ</button>
+                                    </div>
+                                ) : (
+                                    activeUsers.map((user, idx) => (
+                                        <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden page-break print-break-inside-avoid result-card">
+                                            <div className="bg-gray-50 px-6 py-4 border-b flex flex-wrap gap-4 justify-between items-center result-header">
+                                                <div>
+                                                    <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
+                                                        {user.name} 様
+                                                        {user.isUnregistered && <span className="text-xs bg-gray-600 text-white px-2 py-0.5 rounded">未登録</span>}
+                                                    </h3>
+                                                </div>
+                                                <div className="flex gap-4 items-center">
+                                                    <div className="text-right">
+                                                        <p className="text-xs text-gray-500">定期重複額</p>
+                                                        <p className="font-bold text-xl text-red-600">¥{user.targetAmount.toLocaleString()}</p>
+                                                    </div>
+                                                    <div className="text-right border-l pl-4">
+                                                        <p className="text-xs text-gray-500">利用総額(対象外除く)</p>
+                                                        <p className="font-bold text-lg text-slate-700">¥{user.totalAmount.toLocaleString()}</p>
+                                                    </div>
+                                                    {user.alertCount > 0 ? (
+                                                        <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
+                                                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
+                                                            要確認 {user.alertCount}件
+                                                        </span>
+                                                    ) : (
+                                                        <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
+                                                            問題なし
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            
+                                            <div className="overflow-x-auto">
+                                                <table className="w-full text-sm text-left whitespace-nowrap">
+                                                    <thead className="bg-gray-100 text-gray-600">
+                                                        <tr>
+                                                            <th className="px-6 py-3 w-32">状態</th>
+                                                            <th className="px-6 py-3 w-32">日付</th>
+                                                            <th className="px-6 py-3 w-32">時間</th>
+                                                            <th className="px-6 py-3">内容</th>
+                                                            <th className="px-6 py-3 text-right">金額</th>
+                                                            <th className="px-6 py-3 text-gray-400">備考</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody className="divide-y divide-gray-100">
+                                                        {user.records.length === 0 ? (
+                                                            <tr>
+                                                                <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
+                                                                    利用履歴なし
+                                                                </td>
+                                                            </tr>
+                                                        ) : (
+                                                            user.records.map((row, rIdx) => (
+                                                                <tr key={rIdx} className={`hover:bg-gray-50 transition ${row.isIgnored ? 'opacity-50 bg-gray-50' : ''} ${row.alerts.length > 0 ? 'bg-red-50 hover:bg-red-100' : ''}`}>
+                                                                    <td className="px-6 py-3">
+                                                                        {row.alerts.length > 0 ? row.alerts.map(a => <AlertBadge key={a} type={a} />) : (row.isIgnored ? '-' : <span className="text-green-500 font-bold">OK</span>)}
+                                                                    </td>
+                                                                    <td className="px-6 py-3 font-mono text-gray-600">{row.date}</td>
+                                                                    <td className="px-6 py-3 font-mono text-gray-600">{row.time}</td>
+                                                                    <td className="px-6 py-3 font-medium text-gray-800">{row.content}</td>
+                                                                    <td className="px-6 py-3 text-right font-mono">¥{row.amount.toLocaleString()}</td>
+                                                                    <td className="px-6 py-3 truncate max-w-xs text-gray-500">
+                                                                        {row.overlapInfoText && (
+                                                                            <span className="block text-xs text-red-600 font-bold mb-1">
+                                                                                重複: {row.overlapInfoText}
+                                                                            </span>
+                                                                        )}
+                                                                        {row.note}
+                                                                    </td>
+                                                                </tr>
+                                                            ))
+                                                        )}
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
+                            </div>
+                        )}
+                    </main>
+                </div>
+            );
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
