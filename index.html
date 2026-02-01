@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v19</title>
+    <title>PiTaPa利用チェックツール v22</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -189,6 +189,40 @@
     <script type="text/babel">
         const { useState, useEffect, useMemo, useRef } = React;
 
+        // --- Icons (Move outside App to fix ReferenceError) ---
+        const Icons = {
+            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
+            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
+            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
+            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
+            UploadFile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
+            Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+        };
+
+        // --- Components (Move outside App to fix ReferenceError) ---
+
+        const AlertBadge = ({ type }) => {
+            const styles = {
+                holiday: "bg-red-100 text-red-800 border-red-200",
+                route: "bg-yellow-100 text-yellow-800 border-yellow-200",
+                bus: "bg-gray-100 text-gray-600",
+                unknown: "bg-orange-100 text-orange-800 border-orange-200"
+            };
+            const labels = {
+                holiday: "休日",
+                route: "定期重複",
+                bus: "対象外",
+                unknown: "駅名不明"
+            };
+            return (
+                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mr-2 ${styles[type] || ""}`}>
+                    {labels[type]}
+                </span>
+            );
+        };
+
         // --- 定数・マスタデータ ---
 
         const STATION_DATA = {
@@ -344,7 +378,7 @@
             // 主要重複駅の明示
             { from: "梅田", to: "大阪梅田", company: "阪急" },
             { from: "梅田", to: "大阪梅田", company: "阪神" },
-            { from: "梅田", to: "東梅田", company: "大阪メトロ" }, // 谷町線の場合など(CSVの会社名で判断される)
+            { from: "梅田", to: "東梅田", company: "大阪メトロ" }, 
             { from: "梅田", to: "西梅田", company: "大阪メトロ" },
             { from: "難波", to: "大阪難波", company: "近鉄" },
             { from: "難波", to: "大阪難波", company: "阪神" },
@@ -361,25 +395,10 @@
         // --- ゆらぎ自動生成 ---
         const generateDefaultAliases = () => {
             const autoAliases = [];
-            const companyShortNames = {
-                "大阪メトロ": ["大阪", "大地"],
-                "阪急電鉄": ["阪急"],
-                "阪神電車": ["阪神"],
-                "京阪電車": ["京阪"],
-                "近鉄電車": ["近鉄"],
-                "南海電鉄": ["南海"],
-                "神戸市営地下鉄": ["神戸"],
-                "神戸電鉄": ["神鉄"]
-            };
-
             Object.entries(STATION_DATA).forEach(([company, lines]) => {
                 Object.values(lines).forEach(stations => {
                     stations.forEach(station => {
-                        // 1. 正式名称そのもの (会社紐付け用)
                         autoAliases.push({ from: station, to: station, company: company });
-
-                        // 2. 接頭辞カット (例: 大阪梅田 -> 梅田)
-                        // 接頭辞リスト: 大阪, 神戸, 近鉄, 京阪, 阪神, 阪急, 山陽, 能勢, 南海
                         const prefixes = ["大阪", "神戸", "近鉄", "京阪", "阪神", "阪急", "山陽", "能勢", "南海"];
                         prefixes.forEach(prefix => {
                             if (station.startsWith(prefix) && station.length > prefix.length) {
@@ -387,16 +406,12 @@
                                 autoAliases.push({ from: shortName, to: station, company: company });
                             }
                         });
-
-                        // 3. 接尾辞カット (例: 高槻市 -> 高槻, 〇〇駅 -> 〇〇)
                         if (station.endsWith("市") && station.length > 2) {
                             autoAliases.push({ from: station.slice(0, -1), to: station, company: company });
                         }
                         if (station.endsWith("駅") && station.length > 1) {
                             autoAliases.push({ from: station.slice(0, -1), to: station, company: company });
                         }
-
-                        // 4. 括弧書きカット
                         if (station.includes("(") || station.includes("（")) {
                             const cleanName = station.replace(/[\(（].+?[\)）]/, "");
                             if (cleanName !== station) {
@@ -469,8 +484,6 @@
 
         const resolveStationAlias = (stationName, aliases, targetCompanyPrefix, companyAliases) => {
             const normalizedCompany = resolveCompanyAlias(targetCompanyPrefix, companyAliases);
-            
-            // 完全一致検索
             const found = aliases.find(a => {
                 const nameMatch = a.from === stationName;
                 const companyMatch = !a.company || normalizedCompany.includes(a.company) || targetCompanyPrefix.includes(a.company);
@@ -478,7 +491,6 @@
             });
             if (found) return found.to;
 
-            // ファジーマッチ
             if (STATION_DATA[normalizedCompany]) {
                 const lines = Object.values(STATION_DATA[normalizedCompany]);
                 for (const stations of lines) {
@@ -572,62 +584,21 @@
             return { isOverlap: false };
         };
 
-        // --- Icons ---
-        const Icons = {
-            Upload: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-            Settings: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.38a2 2 0 0 0-.73-2.73l-.15-.1a2 2 0 0 1-1-1.72v-.51a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></svg>,
-            Check: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="20 6 9 17 4 12"/></svg>,
-            Trash: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>,
-            Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
-            UploadFile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
-            Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
-            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-        };
-
-        // --- Components ---
-
-        const AlertBadge = ({ type }) => {
-            const styles = {
-                holiday: "bg-red-100 text-red-800 border-red-200",
-                route: "bg-yellow-100 text-yellow-800 border-yellow-200",
-                bus: "bg-gray-100 text-gray-600",
-                unknown: "bg-orange-100 text-orange-800 border-orange-200"
-            };
-            const labels = {
-                holiday: "休日",
-                route: "定期重複",
-                bus: "対象外",
-                unknown: "駅名不明"
-            };
-            return (
-                <span className={`inline-flex items-center px-2 py-0.5 rounded text-xs font-medium border mr-2 ${styles[type] || ""}`}>
-                    {labels[type]}
-                </span>
-            );
-        };
-
         const App = () => {
             const [activeTab, setActiveTab] = useState('upload');
             const [files, setFiles] = useState([]);
             const [parsedData, setParsedData] = useState([]);
-            
-            // Settings
             const [users, setUsers] = useState([]);
             const [holidays, setHolidays] = useState(INITIAL_HOLIDAYS);
             const [holidayInput, setHolidayInput] = useState(INITIAL_HOLIDAYS.join('\n'));
             const [aliases, setAliases] = useState([...generateDefaultAliases(), ...MANUAL_STATION_ALIASES]);
             const [companyAliases, setCompanyAliases] = useState(INITIAL_COMPANY_ALIASES);
-            
-            // v15: No usage tracking
-            const [noUsageUsers, setNoUsageUsers] = useState([]); // List of user names
-
-            // Temporary states for inputs
+            const [noUsageUsers, setNoUsageUsers] = useState([]);
             const [tempUser, setTempUser] = useState({ name: "", passes: [] });
             const [editingPass, setEditingPass] = useState({ company: "JR西日本", line: "", from: "", to: "" });
             const [newAlias, setNewAlias] = useState({ from: "", to: "", company: "" });
             const [newCompanyAlias, setNewCompanyAlias] = useState({ from: "", to: "" });
 
-            // Derived
             const availableLines = useMemo(() => {
                 if (STATION_DATA[editingPass.company]) return Object.keys(STATION_DATA[editingPass.company]);
                 return [];
@@ -685,7 +656,6 @@
                 csvContent += "# === ユーザー定期設定 ===\n# Type, Name, Company, Line, From, To\n";
                 users.forEach(u => {
                     u.passes.forEach(p => {
-                        // v15: name is same as displayName
                         csvContent += `USER,${u.name},${p.company},${p.line},${p.from},${p.to}\n`;
                     });
                 });
@@ -733,7 +703,7 @@
                                     newUsers.push({
                                         id: Date.now() + Math.random(),
                                         displayName: name,
-                                        name: name, // v15: keep spaces
+                                        name: name,
                                         passes: [pass]
                                     });
                                 }
@@ -784,7 +754,7 @@
                 const newUser = {
                     id: Date.now(),
                     displayName: tempUser.name,
-                    name: tempUser.name, // v15: keep spaces strictly
+                    name: tempUser.name,
                     passes: tempUser.passes
                 };
                 setUsers([...users, newUser]);
@@ -795,7 +765,6 @@
                 setUsers(users.filter(u => u.id !== id));
             };
 
-            // Main Logic
             const analyzedData = useMemo(() => {
                 return parsedData.map(record => {
                     const alerts = [];
@@ -823,7 +792,6 @@
                             alerts.push('holiday');
                         }
 
-                        // v15: Strict match (exact string)
                         const user = users.find(u => u.name === record.name);
                         
                         if (user && user.passes.length > 0 && usageInfo) {
@@ -888,7 +856,6 @@
             const activeUsers = userSummaries.filter(u => u.isSubmitted && !noUsageUsers.includes(u.name));
             const duplicateRouteUsers = userSummaries.filter(u => u.targetAmount > 0);
 
-            // v15: Toggle no usage status
             const toggleNoUsage = (name) => {
                 if (noUsageUsers.includes(name)) {
                     setNoUsageUsers(noUsageUsers.filter(n => n !== name));
@@ -911,7 +878,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v19
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v22
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1307,26 +1274,31 @@
                                                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
                                                         {user.name} 様
                                                         {user.isUnregistered && <span className="text-xs bg-gray-600 text-white px-2 py-0.5 rounded">未登録</span>}
+                                                        {noUsageUsers.includes(user.name) && <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded">利用なし連絡済</span>}
                                                     </h3>
                                                 </div>
                                                 <div className="flex gap-4 items-center">
-                                                    <div className="text-right summary-info">
-                                                        <span className="text-gray-500">定期重複額: </span>
-                                                        <span className="font-bold text-red-600">¥{user.targetAmount.toLocaleString()}</span>
-                                                    </div>
-                                                    <div className="text-right border-l pl-4 summary-info">
-                                                        <span className="text-gray-500">利用総額(対象外除): </span>
-                                                        <span className="font-bold text-slate-700">¥{user.totalAmount.toLocaleString()}</span>
-                                                    </div>
-                                                    {user.alertCount > 0 ? (
-                                                        <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
-                                                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
-                                                            要確認 {user.alertCount}件
-                                                        </span>
-                                                    ) : (
-                                                        <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
-                                                            問題なし
-                                                        </span>
+                                                    {!noUsageUsers.includes(user.name) && (
+                                                        <>
+                                                            <div className="text-right summary-info">
+                                                                <span className="text-gray-500">定期重複額: </span>
+                                                                <span className="font-bold text-red-600">¥{user.targetAmount.toLocaleString()}</span>
+                                                            </div>
+                                                            <div className="text-right border-l pl-4 summary-info">
+                                                                <span className="text-gray-500">利用総額(対象外除): </span>
+                                                                <span className="font-bold text-slate-700">¥{user.totalAmount.toLocaleString()}</span>
+                                                            </div>
+                                                            {user.alertCount > 0 ? (
+                                                                <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
+                                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
+                                                                    要確認 {user.alertCount}件
+                                                                </span>
+                                                            ) : (
+                                                                <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
+                                                                    問題なし
+                                                                </span>
+                                                            )}
+                                                        </>
                                                     )}
                                                 </div>
                                             </div>
@@ -1344,7 +1316,14 @@
                                                         </tr>
                                                     </thead>
                                                     <tbody className="divide-y divide-gray-100">
-                                                        {user.records.length === 0 ? (
+                                                        {noUsageUsers.includes(user.name) ? (
+                                                            <tr>
+                                                                <td colSpan="6" className="px-6 py-8 text-center text-green-600 font-bold bg-green-50">
+                                                                    利用なし（連絡済み）
+                                                                    <button onClick={() => toggleNoUsage(user.name)} className="ml-4 text-xs text-gray-400 underline no-print">解除</button>
+                                                                </td>
+                                                            </tr>
+                                                        ) : user.records.length === 0 ? (
                                                             <tr>
                                                                 <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
                                                                     利用履歴なし
