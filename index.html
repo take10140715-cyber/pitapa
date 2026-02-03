@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v25</title>
+    <title>PiTaPa利用チェックツール v27</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -44,7 +44,7 @@
             }
             
             /* 印刷時に非表示 */
-            .no-print, header, nav, .upload-area, .settings-area, .utility-bar, .user-input-form, .alias-input-form, .info-panel, button { 
+            .no-print, header, nav, .upload-area, .settings-area, .utility-bar, .user-input-form, .alias-input-form, .info-panel, button, .modal-overlay { 
                 display: none !important; 
             }
             
@@ -71,11 +71,11 @@
                 padding-bottom: 5px;
             }
             
-            /* テーブルデザイン - 行の高さ調整 (8pt対応) */
+            /* テーブルデザイン - 行の高さ圧縮 (8pt対応) */
             table { 
                 width: 100%; 
                 border-collapse: collapse; 
-                font-size: 8pt !important; /* 全体を8ptに統一 */
+                font-size: 8pt !important; /* 全体を8ptに */
                 table-layout: fixed; 
             }
             th, td { 
@@ -93,32 +93,31 @@
                 text-align: center;
                 font-size: 8pt !important;
                 padding: 1px 0px !important;
-                height: auto !important;
+                height: 14px !important;
             }
             
-            /* 列幅 (v24の設定を維持) */
+            /* 列幅の維持 */
             th:nth-child(1) { width: 5%; }   /* 状態 */
-            th:nth-child(2) { width: 9%; }   /* 日付 */
-            th:nth-child(3) { width: 14%; }  /* 時間 */
-            th:nth-child(4) { width: 7%; }   /* 所要 */
-            th:nth-child(5) { width: 28%; }  /* 内容 */
-            th:nth-child(6) { width: 7%; }   /* 金額 */
-            th:nth-child(7) { width: 30%; }  /* 備考 */
+            th:nth-child(2) { width: 10%; }  /* 日付 */
+            th:nth-child(3) { width: 20%; }  /* 時間 */
+            th:nth-child(4) { width: 28%; }  /* 内容 */
+            th:nth-child(5) { width: 7%; }   /* 金額 */
+            th:nth-child(6) { width: 30%; }  /* 備考 */
 
             /* バッジ */
             td:nth-child(1) span { 
-                font-size: 7pt !important; /* バッジ内も可能な限り大きく */
+                font-size: 6pt !important; /* バッジ内は少し小さくしないとあふれる可能性があるため調整 */
                 padding: 0 !important; 
                 border: 1px solid #999 !important;
                 margin: 0 !important;
                 display: inline-block;
                 white-space: nowrap;
                 line-height: 1;
-                transform: scale(0.9); /* 枠からはみ出ないようわずかに縮小 */
+                transform: scale(0.9);
             }
 
-            /* 日付・時間・所要 */
-            td:nth-child(2), td:nth-child(3), td:nth-child(4) { 
+            /* 日付・時間 */
+            td:nth-child(2), td:nth-child(3) { 
                 text-align: center; 
                 white-space: nowrap; 
                 font-family: Arial, sans-serif; 
@@ -127,20 +126,20 @@
             }
 
             /* 内容・備考 */
-            td:nth-child(5), td:nth-child(7) { 
+            td:nth-child(4), td:nth-child(6) { 
                 text-align: left; 
                 font-size: 8pt !important; 
                 line-height: 1.0 !important;
             }
 
             /* 金額 */
-            td:nth-child(6) { 
+            td:nth-child(5) { 
                 text-align: right; 
                 font-family: Arial, sans-serif; 
                 font-size: 8pt !important;
             }
             
-            /* データ行自体の高さ */
+            /* データ行自体の高さを抑制 */
             tr {
                 height: auto !important; 
             }
@@ -199,7 +198,8 @@
             Download: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>,
             UploadFile: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>,
             Printer: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>,
-            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+            Plus: () => <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>,
+            Help: () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
         };
 
         // --- Components ---
@@ -224,16 +224,90 @@
             );
         };
 
+        const HelpModal = ({ isOpen, onClose }) => {
+            if (!isOpen) return null;
+            return (
+                <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 modal-overlay no-print">
+                    <div className="bg-white p-6 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto shadow-2xl">
+                        <div className="flex justify-between items-center mb-4 border-b pb-2">
+                            <h2 className="text-xl font-bold text-gray-800">ユーザーマニュアル</h2>
+                            <button onClick={onClose} className="text-gray-500 hover:text-gray-700 font-bold text-2xl">×</button>
+                        </div>
+                        <div className="space-y-4 text-sm text-gray-700">
+                            <section>
+                                <h3 className="font-bold text-base text-blue-800 mb-2">1. はじめに</h3>
+                                <p>このツールは、PiTaPaの利用明細CSVを読み込み、定期区間との重複や休日利用を自動チェックするアプリです。</p>
+                            </section>
+                            
+                            <section>
+                                <h3 className="font-bold text-base text-blue-800 mb-2">2. 使い方</h3>
+                                <div className="pl-4 space-y-2">
+                                    <div>
+                                        <h4 className="font-bold">① 社員・定期の登録 (「定期・設定」タブ)</h4>
+                                        <ul className="list-disc pl-5">
+                                            <li>社員名と定期区間（利用している鉄道会社・路線・区間）を登録します。</li>
+                                            <li className="text-red-600 font-bold">重要: 社員名はCSVの「○○　○○　様ご利用分」の氏名と【一字一句（全角スペース含む）】完全に一致させてください。</li>
+                                            <li>例：「山口　武志」（全角スペースあり）</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold">② CSVファイルの読み込み (「CSV取込」タブ)</h4>
+                                        <ul className="list-disc pl-5">
+                                            <li>PiTaPa倶楽部からダウンロードしたCSVファイルをドラッグ＆ドロップします。</li>
+                                            <li>複数のファイルを一度に読み込んだり、フォルダごと指定することも可能です。</li>
+                                        </ul>
+                                    </div>
+                                    <div>
+                                        <h4 className="font-bold">③ 結果の確認 (「結果確認」タブ)</h4>
+                                        <ul className="list-disc pl-5">
+                                            <li><span className="bg-red-100 text-red-800 px-1 rounded">休日</span>: 土日祝日の利用</li>
+                                            <li><span className="bg-yellow-100 text-yellow-800 px-1 rounded">定期重複</span>: 登録した定期区間内での課金利用</li>
+                                            <li><span className="bg-orange-100 text-orange-800 px-1 rounded">駅名不明</span>: マスタデータにない駅名（ゆらぎ設定で登録推奨）</li>
+                                            <li>未提出者（CSVがない社員）は画面上部にリストアップされます。「利用なし」の連絡があった場合は、名前をクリックして「利用なし連絡済」に切り替えられます。</li>
+                                        </ul>
+                                    </div>
+                                </div>
+                            </section>
+
+                            <section>
+                                <h3 className="font-bold text-base text-blue-800 mb-2">3. 印刷について</h3>
+                                <p>「印刷プレビュー」ボタンを押すと、A4縦サイズに最適化されたレポートが表示されます。ブラウザの印刷機能を使ってPDF保存や紙への印刷を行ってください。</p>
+                                <p className="text-xs text-gray-500">※プレビューが表示されない場合は、ファイルをPCに保存し、ブラウザで直接開いてから実行してください。</p>
+                            </section>
+
+                            <section>
+                                <h3 className="font-bold text-base text-blue-800 mb-2">4. 設定の保存</h3>
+                                <p>登録した社員データや独自の設定（休日・ゆらぎ）は、「設定データ操作」からCSVファイルとして保存（エクスポート）できます。次回利用時に読み込むことで、再入力の手間が省けます。</p>
+                            </section>
+                        </div>
+                        <div className="mt-6 text-center">
+                            <button onClick={onClose} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">閉じる</button>
+                        </div>
+                    </div>
+                </div>
+            );
+        };
+
         // --- 定数・マスタデータ ---
 
         const STATION_DATA = {
             "JR西日本": {
                 "京都線・神戸線・琵琶湖線": ["米原", "彦根", "南彦根", "河瀬", "稲枝", "能登川", "安土", "近江八幡", "篠原", "野洲", "守山", "栗東", "草津", "南草津", "瀬田", "石山", "膳所", "大津", "山科", "京都", "西大路", "桂川", "向日町", "長岡京", "山崎", "島本", "高槻", "摂津富田", "ＪＲ総持寺", "茨木", "千里丘", "岸辺", "吹田", "東淀川", "新大阪", "大阪", "塚本", "尼崎", "立花", "甲子園口", "西宮", "さくら夙川", "芦屋", "甲南山手", "摂津本山", "住吉", "六甲道", "摩耶", "灘", "三ノ宮", "元町", "神戸", "兵庫", "新長田", "鷹取", "須磨海浜公園", "須磨", "塩屋", "垂水", "舞子", "朝霧", "明石", "西明石", "大久保", "魚住", "土山", "東加古川", "加古川", "宝殿", "曽根", "ひめじ別所", "御着", "東姫路", "姫路"],
+                "山陽本線(姫路-相生)": ["姫路", "英賀保", "はりま勝原", "網干", "竜野", "相生"],
                 "宝塚線(福知山線)": ["尼崎", "塚口", "猪名寺", "伊丹", "北伊丹", "川西池田", "中山寺", "宝塚", "生瀬", "西宮名塩", "武田尾", "道場", "三田", "新三田"],
                 "東西線・学研都市線": ["木津", "西木津", "祝園", "下狛", "ＪＲ三山木", "同志社前", "京田辺", "大住", "松井山手", "長尾", "藤阪", "津田", "河内磐船", "星田", "寝屋川公園", "忍ヶ丘", "四条畷", "野崎", "住道", "鴻池新田", "徳庵", "放出", "鴫野", "京橋", "大阪城北詰", "大阪天満宮", "北新地", "新福島", "海老江", "御幣島", "加島", "尼崎"],
                 "大阪環状線": ["大阪", "福島", "野田", "西九条", "弁天町", "大正", "芦原橋", "今宮", "新今宮", "天王寺", "寺田町", "桃谷", "鶴橋", "玉造", "森ノ宮", "大阪城公園", "京橋", "桜ノ宮", "天満"],
                 "阪和線": ["天王寺", "美章園", "南田辺", "鶴ヶ丘", "長居", "我孫子町", "杉本町", "浅香", "堺市", "三国ヶ丘", "百舌鳥", "上野芝", "津久野", "鳳", "富木", "北信太", "信太山", "和泉府中", "久米田", "下松", "東岸和田", "東貝塚", "和泉橋本", "東佐野", "熊取", "日根野", "りんくうタウン", "関西空港"],
-                "大和路線": ["加茂", "木津", "平城山", "奈良", "郡山", "大和小泉", "法隆寺", "王寺", "三郷", "河内堅上", "高井田", "柏原", "志紀", "八尾", "久宝寺", "加美", "平野", "東部市場前", "天王寺", "新今宮", "今宮", "ＪＲ難波"]
+                "大和路線": ["加茂", "木津", "平城山", "奈良", "郡山", "大和小泉", "法隆寺", "王寺", "三郷", "河内堅上", "高井田", "柏原", "志紀", "八尾", "久宝寺", "加美", "平野", "東部市場前", "天王寺", "新今宮", "今宮", "ＪＲ難波"],
+                "赤穂線": ["相生", "西相生", "坂越", "播州赤穂", "天和", "備前福河", "日生", "寒河", "邑久", "長船", "香登", "伊部", "西片上", "西大寺", "大富", "東岡山"],
+                "湖西線": ["京都", "山科", "大津京", "唐崎", "比叡山坂本", "おごと温泉", "堅田", "小野", "和邇", "蓬莱", "志賀", "比良", "近江舞子", "北小松", "近江高島", "安曇川", "新旭", "近江今津", "近江中庄", "マキノ", "永原"],
+                "草津線": ["草津", "手原", "石部", "甲西", "三雲", "貴生川", "甲南", "寺庄", "甲賀", "油日", "柘植"],
+                "奈良線": ["京都", "東福寺", "稲荷", "ＪＲ藤森", "桃山", "六地蔵", "木幡", "黄檗", "宇治", "ＪＲ小倉", "新田", "城陽", "長池", "山城青谷", "山城多賀", "玉水", "棚倉", "上狛", "木津", "奈良"],
+                "嵯峨野線(山陰本線)": ["京都", "梅小路京都西", "丹波口", "二条", "円町", "花園", "太秦", "嵯峨嵐山", "保津峡", "馬堀", "亀岡", "並河", "千代川", "八木", "吉富", "園部"],
+                "おおさか東線": ["大阪", "新大阪", "南吹田", "ＪＲ淡路", "城北公園通", "ＪＲ野江", "鴫野", "放出", "高井田中央", "ＪＲ河内永和", "ＪＲ俊徳道", "ＪＲ長瀬", "衣摺加美北", "新加美", "久宝寺"],
+                "関西空港線": ["日根野", "りんくうタウン", "関西空港"],
+                "和歌山線": ["王寺", "畠田", "志都美", "香芝", "ＪＲ五位堂", "高田", "大和新庄", "御所", "玉手", "掖上", "吉野口", "北宇智", "五条", "大和二見", "隅田", "下兵庫", "橋本", "紀伊山田", "高野口", "中飯降", "妙寺", "大谷", "笠田", "西笠田", "名手", "粉河", "紀伊長田", "打田", "下井阪", "岩出", "船戸", "紀伊小倉", "布施屋", "千旦", "田井ノ瀬", "和歌山"],
+                "万葉まほろば線(桜井線)": ["奈良", "京終", "帯解", "山城", "櫟本", "天理", "長柄", "柳本", "巻向", "三輪", "桜井", "香久山", "畝傍", "金橋", "高田"]
             },
             "大阪メトロ": {
                 "御堂筋線": ["江坂", "東三国", "新大阪", "西中島南方", "中津", "梅田", "淀屋橋", "本町", "心斎橋", "なんば", "大国町", "動物園前", "天王寺", "昭和町", "西田辺", "長居", "あびこ", "北花田", "新金岡", "なかもず"],
@@ -261,23 +335,51 @@
                 "京都線": ["京都河原町", "烏丸", "大宮", "西院", "西京極", "桂", "洛西口", "東向日", "西向日", "長岡天神", "西山天王山", "大山崎", "水無瀬", "上牧", "高槻市", "富田", "総持寺", "茨木市", "南茨木", "摂津市", "正雀", "相川", "上新庄", "淡路", "崇禅寺", "南方", "十三", "大阪梅田"],
                 "宝塚線": ["宝塚", "清荒神", "売布神社", "中山観音", "山本", "雲雀丘花屋敷", "川西能勢口", "池田", "石橋阪大前", "蛍池", "豊中", "岡町", "曽根", "服部天神", "庄内", "三国", "十三", "中津", "大阪梅田"],
                 "神戸線": ["神戸三宮", "春日野道", "王子公園", "六甲", "御影", "岡本", "芦屋川", "夙川", "西宮北口", "武庫之荘", "塚口", "園田", "神崎川", "十三", "中津", "大阪梅田"],
-                "千里線": ["北千里", "山田", "南千里", "千里山", "関大前", "豊津", "吹田", "下新庄", "淡路", "柴島", "天神橋筋六丁目"]
+                "千里線": ["北千里", "山田", "南千里", "千里山", "関大前", "豊津", "吹田", "下新庄", "淡路", "柴島", "天神橋筋六丁目"],
+                "嵐山線": ["桂", "上桂", "松尾大社", "嵐山"],
+                "今津線": ["宝塚", "宝塚南口", "逆瀬川", "小林", "仁川", "甲東園", "門戸厄神", "西宮北口", "阪神国道", "今津"],
+                "箕面線": ["石橋阪大前", "桜井", "牧落", "箕面"],
+                "伊丹線": ["塚口", "稲野", "新伊丹", "伊丹"],
+                "甲陽線": ["夙川", "苦楽園口", "甲陽園"]
             },
             "阪神電車": {
                 "本線": ["元町", "神戸三宮", "春日野道", "岩屋", "西灘", "大石", "新在家", "石屋川", "御影", "住吉", "魚崎", "青木", "深江", "芦屋", "打出", "香櫨園", "西宮", "今津", "久寿川", "甲子園", "鳴尾・武庫川女子大前", "武庫川", "尼崎センタープール前", "出屋敷", "尼崎", "大物", "杭瀬", "千船", "姫島", "淀川", "野田", "福島", "大阪梅田"],
                 "なんば線": ["大阪難波", "桜川", "ドーム前", "九条", "西九条", "千鳥橋", "伝法", "福", "出来島", "大物", "尼崎"]
             },
             "京阪電車": {
-                "本線": ["淀屋橋", "北浜", "天満橋", "京橋", "野江", "関目", "森小路", "千林", "滝井", "土居", "守口市", "西三荘", "門真市", "古川橋", "大和田", "萱島", "寝屋川市", "香里園", "光善寺", "枚方公園", "枚方市", "御殿山", "牧野", "樟葉", "橋本", "石清水八幡宮", "淀", "中書島", "伏見桃山", "丹波橋", "墨染", "藤森", "龍谷大前深草", "伏見稲荷", "鳥羽街道", "東福寺", "七条", "清水五条", "祇園四条", "三条", "神宮丸太町", "出町柳"]
+                "本線": ["淀屋橋", "北浜", "天満橋", "京橋", "野江", "関目", "森小路", "千林", "滝井", "土居", "守口市", "西三荘", "門真市", "古川橋", "大和田", "萱島", "寝屋川市", "香里園", "光善寺", "枚方公園", "枚方市", "御殿山", "牧野", "樟葉", "橋本", "石清水八幡宮", "淀", "中書島", "伏見桃山", "丹波橋", "墨染", "藤森", "龍谷大前深草", "伏見稲荷", "鳥羽街道", "東福寺", "七条", "清水五条", "祇園四条", "三条", "神宮丸太町", "出町柳"],
+                "鴨東線": ["三条", "神宮丸太町", "出町柳"],
+                "中之島線": ["中之島", "渡辺橋", "大江橋", "なにわ橋", "天満橋"],
+                "交野線": ["枚方市", "宮之阪", "星ヶ丘", "村野", "郡津", "交野市", "河内森", "私市"],
+                "宇治線": ["中書島", "観月橋", "桃山南口", "六地蔵", "木幡", "黄檗", "三室戸", "宇治"],
+                "京津線": ["御陵", "京阪山科", "四宮", "追分", "大谷", "上栄町", "びわ湖浜大津"],
+                "石山坂本線": ["石山寺", "唐橋前", "京阪石山", "粟津", "瓦ヶ浜", "中ノ庄", "膳所本町", "錦", "京阪膳所", "石場", "島ノ関", "びわ湖浜大津", "三井寺", "大津市役所前", "京阪大津京", "近江神宮前", "南滋賀", "滋賀里", "穴太", "松ノ馬場", "坂本比叡山口"]
             },
             "近鉄電車": {
                 "奈良線": ["大阪難波", "近鉄日本橋", "大阪上本町", "鶴橋", "今里", "布施", "河内永和", "河内小阪", "八戸ノ里", "若江岩田", "河内花園", "東花園", "瓢箪山", "枚岡", "額田", "石切", "生駒", "東生駒", "富雄", "学園前", "菖蒲池", "大和西大寺", "新大宮", "近鉄奈良"],
-                "大阪線": ["大阪上本町", "鶴橋", "今里", "布施", "俊徳道", "長瀬", "弥刀", "久宝寺口", "近鉄八尾", "河内山本", "高安", "恩智", "法善寺", "堅下", "安堂", "河内国分", "大阪教育大前", "関屋", "二上", "近鉄下田", "五位堂", "築山", "大和高田", "松塚", "真菅", "大和八木"],
-                "京都線": ["京都", "東寺", "十条", "上鳥羽口", "竹田", "伏見", "近鉄丹波橋", "桃山御陵前", "向島", "小倉", "伊勢田", "大久保", "久津川", "寺田", "富野荘", "新田辺", "興戸", "三山木", "近鉄宮津", "狛田", "新祝園", "木津川台", "山田川", "高の原", "平城", "大和西大寺"]
+                "大阪線": ["大阪上本町", "鶴橋", "今里", "布施", "俊徳道", "長瀬", "弥刀", "久宝寺口", "近鉄八尾", "河内山本", "高安", "恩智", "法善寺", "堅下", "安堂", "河内国分", "大阪教育大前", "関屋", "二上", "近鉄下田", "五位堂", "築山", "大和高田", "松塚", "真菅", "大和八木", "耳成", "大福", "桜井", "大和朝倉", "長谷寺", "榛原", "室生口大野", "三本松", "赤目口", "名張", "伊賀神戸", "青山町", "伊賀上津", "西青山", "東青山", "榊原温泉口", "大三", "伊勢石橋", "川合高岡", "伊勢中川"],
+                "京都線": ["京都", "東寺", "十条", "上鳥羽口", "竹田", "伏見", "近鉄丹波橋", "桃山御陵前", "向島", "小倉", "伊勢田", "大久保", "久津川", "寺田", "富野荘", "新田辺", "興戸", "三山木", "近鉄宮津", "狛田", "新祝園", "木津川台", "山田川", "高の原", "平城", "大和西大寺"],
+                "南大阪線": ["大阪阿部野橋", "河堀口", "北田辺", "今川", "針中野", "矢田", "河内天美", "布忍", "高見ノ里", "河内松原", "恵我ノ荘", "高鷲", "藤井寺", "土師ノ里", "道明寺", "古市", "駒ヶ谷", "上ノ太子", "二上山", "二上神社口", "当麻寺", "磐城", "尺土", "高田市", "浮孔", "坊城", "橿原神宮前"],
+                "吉野線": ["橿原神宮前", "岡寺", "飛鳥", "壺阪山", "市尾", "葛", "吉野口", "薬水", "福神", "大阿太", "下市口", "越部", "六田", "大和上市", "吉野神宮", "吉野"],
+                "橿原線": ["大和西大寺", "尼ヶ辻", "西ノ京", "九条", "近鉄郡山", "筒井", "平端", "ファミリー公園前", "結崎", "石見", "田原本", "笠縫", "新ノ口", "大和八木", "八木西口", "畝傍御陵前", "橿原神宮前"],
+                "天理線": ["平端", "二階堂", "前栽", "天理"],
+                "田原本線": ["新王寺", "大輪田", "佐味田川", "池部", "箸尾", "但馬", "黒田", "西田原本"],
+                "生駒線": ["王寺", "信貴山下", "勢野北口", "竜田川", "白庭台", "学研北生駒", "富雄", "東山", "元山上口", "平群", "菜畑", "一分", "南生駒", "萩の台", "生駒"],
+                "けいはんな線": ["長田", "荒本", "吉田", "新石切", "生駒", "白庭台", "学研北生駒", "学研奈良登美ヶ丘"],
+                "信貴線": ["河内山本", "服部川", "信貴山口"],
+                "道明寺線": ["道明寺", "柏原南口", "柏原"],
+                "長野線": ["古市", "喜志", "富田林", "富田林西口", "川西", "滝谷不動", "汐ノ宮", "河内長野"],
+                "御所線": ["尺土", "近鉄新庄", "忍海", "近鉄御所"]
             },
             "南海電鉄": {
                 "本線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "粉浜", "住吉大社", "住ノ江", "七道", "堺", "湊", "石津川", "諏訪ノ森", "浜寺公園", "羽衣", "高石", "北助松", "松ノ浜", "泉大津", "忠岡", "春木", "和泉大宮", "岸和田", "蛸地蔵", "貝塚", "二色浜", "鶴原", "井原里", "泉佐野", "羽倉崎", "吉見ノ里", "岡田浦", "樽井", "尾崎", "鳥取ノ荘", "箱作", "淡輪", "みさき公園", "孝子", "和歌山大学前", "紀ノ川", "和歌山市"],
-                "高野線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "帝塚山", "住吉東", "沢ノ町", "我孫子前", "浅香山", "堺東", "三国ヶ丘", "百舌鳥八幡", "中百舌鳥", "白鷺", "初芝", "萩原天神", "北野田", "狭山", "大阪狭山市", "金剛", "滝谷", "千代田", "河内長野"]
+                "高野線": ["難波", "新今宮", "天下茶屋", "岸里玉出", "帝塚山", "住吉東", "沢ノ町", "我孫子前", "浅香山", "堺東", "三国ヶ丘", "百舌鳥八幡", "中百舌鳥", "白鷺", "初芝", "萩原天神", "北野田", "狭山", "大阪狭山市", "金剛", "滝谷", "千代田", "河内長野", "三日市町", "美加の台", "千早口", "天見", "紀見峠", "林間田園都市", "御幸辻", "橋本", "紀伊清水", "学文路", "九度山", "高野下", "下古沢", "上古沢", "紀伊細川", "紀伊神谷", "極楽橋", "高野山"],
+                "空港線": ["泉佐野", "りんくうタウン", "関西空港"],
+                "多奈川線": ["みさき公園", "深日町", "深日港", "多奈川"],
+                "加太線": ["紀ノ川", "東松江", "中松江", "八幡前", "西ノ庄", "二里ヶ浜", "磯ノ浦", "加太"],
+                "和歌山港線": ["和歌山市", "和歌山港"],
+                "高師浜線": ["羽衣", "伽羅橋", "高師浜"],
+                "汐見橋線": ["岸里玉出", "西天下茶屋", "津守", "木津川", "芦原町", "汐見橋"]
             },
             "京都市営地下鉄": {
                 "烏丸線": ["国際会館", "松ヶ崎", "北山", "北大路", "鞍馬口", "今出川", "丸太町", "烏丸御池", "四条", "五条", "京都", "九条", "十条", "くいな橋", "竹田"],
@@ -376,6 +478,10 @@
             { from: "妙見", to: "妙見口", company: "能勢" },
             { from: "泉ヶ丘", to: "泉ケ丘", company: "泉北" },
             { from: "栂", to: "栂・美木多", company: "泉北" },
+            { from: "橿原", to: "橿原神宮前", company: "近鉄" },
+            { from: "阿部野", to: "大阪阿部野橋", company: "近鉄" },
+            { from: "阿部野橋", to: "大阪阿部野橋", company: "近鉄" },
+            { from: "樟葉", to: "樟葉", company: "京阪" },
             // 主要重複駅の明示
             { from: "梅田", to: "大阪梅田", company: "阪急" },
             { from: "梅田", to: "大阪梅田", company: "阪神" },
@@ -384,7 +490,10 @@
             { from: "難波", to: "大阪難波", company: "近鉄" },
             { from: "難波", to: "大阪難波", company: "阪神" },
             { from: "三宮", to: "神戸三宮", company: "阪急" },
-            { from: "三宮", to: "神戸三宮", company: "阪神" }
+            { from: "三宮", to: "神戸三宮", company: "阪神" },
+            { from: "三宮", to: "三ノ宮", company: "JR" },
+            { from: "大阪", to: "大阪梅田", company: "阪急" },
+            { from: "大阪", to: "大阪梅田", company: "阪神" }
         ];
 
         const INITIAL_HOLIDAYS = [
@@ -458,27 +567,10 @@
                 if (columns.length >= 5 && columns[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
                     const entryTime = columns[1];
                     const exitTime = columns[2];
-                    
                     let timeDisplay = "";
-                    let durationMinutes = 0;
-                    
-                    if (entryTime && exitTime) {
-                         timeDisplay = `${entryTime} - ${exitTime}`;
-                         
-                         // 時間計算 (HH:MM -> 分)
-                         const [eh, em] = entryTime.split(':').map(Number);
-                         const [xh, xm] = exitTime.split(':').map(Number);
-                         if (!isNaN(eh) && !isNaN(em) && !isNaN(xh) && !isNaN(xm)) {
-                             let start = eh * 60 + em;
-                             let end = xh * 60 + xm;
-                             if (end < start) end += 24 * 60; // 日またぎ対応
-                             durationMinutes = end - start;
-                         }
-                    } else if (entryTime) {
-                        timeDisplay = `${entryTime} -`;
-                    } else if (exitTime) {
-                        timeDisplay = `- ${exitTime}`;
-                    }
+                    if (entryTime && exitTime) timeDisplay = `${entryTime} - ${exitTime}`;
+                    else if (entryTime) timeDisplay = `${entryTime} -`;
+                    else if (exitTime) timeDisplay = `- ${exitTime}`;
 
                     results.push({
                         id: `${fileName}-${index}`,
@@ -488,22 +580,11 @@
                         content: columns[3],
                         amount: parseInt(columns[4]),
                         note: columns[5] || "",
-                        durationMinutes,
                         fileName
                     });
                 }
             });
             return results;
-        };
-        
-        // 分 -> 時間.分 (擬似60進数) 変換関数
-        // ユーザー要望: 7.60 -> 8.00 のような計算結果になるように
-        // つまり、単純に 分 を 時間.分 に変換すればよい
-        const formatDuration = (minutes) => {
-            if (!minutes) return "-";
-            const h = Math.floor(minutes / 60);
-            const m = minutes % 60;
-            return `${h}.${m.toString().padStart(2, '0')}`;
         };
 
         const resolveCompanyAlias = (prefix, companyAliases) => {
@@ -627,6 +708,7 @@
             const [editingPass, setEditingPass] = useState({ company: "JR西日本", line: "", from: "", to: "" });
             const [newAlias, setNewAlias] = useState({ from: "", to: "", company: "" });
             const [newCompanyAlias, setNewCompanyAlias] = useState({ from: "", to: "" });
+            const [showHelp, setShowHelp] = useState(false);
 
             const availableLines = useMemo(() => {
                 if (STATION_DATA[editingPass.company]) return Object.keys(STATION_DATA[editingPass.company]);
@@ -849,7 +931,6 @@
                         name: u.name, 
                         totalAmount: 0, 
                         targetAmount: 0, 
-                        totalMinutes: 0, // 分単位の合計
                         alertCount: 0, 
                         records: [],
                         isSubmitted: false 
@@ -862,7 +943,6 @@
                             name: row.name, 
                             totalAmount: 0, 
                             targetAmount: 0, 
-                            totalMinutes: 0,
                             alertCount: 0, 
                             records: [],
                             isSubmitted: true,
@@ -875,9 +955,6 @@
 
                     if (!row.isIgnored) {
                          map[row.name].totalAmount += row.amount;
-                         if (row.durationMinutes) {
-                             map[row.name].totalMinutes += row.durationMinutes;
-                         }
                          if (row.alerts.length > 0) map[row.name].alertCount++;
                          if (row.alerts.includes('route')) {
                              map[row.name].targetAmount += row.amount;
@@ -913,7 +990,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v25
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v27
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -932,8 +1009,17 @@
                                     </button>
                                 ))}
                             </nav>
+                            <button 
+                                onClick={() => setShowHelp(true)}
+                                className="ml-4 text-white hover:text-gray-300 transition"
+                                title="ヘルプ"
+                            >
+                                <Icons.Help />
+                            </button>
                         </div>
                     </header>
+
+                    <HelpModal isOpen={showHelp} onClose={() => setShowHelp(false)} />
 
                     <main className="container mx-auto p-6 flex-grow print-area">
                         {activeTab === 'upload' && (
@@ -1316,10 +1402,6 @@
                                                     {!noUsageUsers.includes(user.name) && (
                                                         <>
                                                             <div className="text-right summary-info">
-                                                                <span className="text-gray-500">所要合計: </span>
-                                                                <span className="font-bold text-blue-600">{formatDuration(user.totalMinutes)}h</span>
-                                                            </div>
-                                                            <div className="text-right border-l pl-4 summary-info">
                                                                 <span className="text-gray-500">定期重複額: </span>
                                                                 <span className="font-bold text-red-600">¥{user.targetAmount.toLocaleString()}</span>
                                                             </div>
@@ -1346,10 +1428,9 @@
                                                 <table className="w-full text-sm text-left whitespace-nowrap">
                                                     <thead className="bg-gray-100 text-gray-600">
                                                         <tr>
-                                                            <th className="px-6 py-3">状態</th>
-                                                            <th className="px-6 py-3">日付</th>
-                                                            <th className="px-6 py-3">時間</th>
-                                                            <th className="px-6 py-3">所要</th>
+                                                            <th className="px-6 py-3 w-32">状態</th>
+                                                            <th className="px-6 py-3 w-32">日付</th>
+                                                            <th className="px-6 py-3 w-32">時間</th>
                                                             <th className="px-6 py-3">内容</th>
                                                             <th className="px-6 py-3 text-right">金額</th>
                                                             <th className="px-6 py-3 text-gray-400">備考</th>
@@ -1358,14 +1439,14 @@
                                                     <tbody className="divide-y divide-gray-100">
                                                         {noUsageUsers.includes(user.name) ? (
                                                             <tr>
-                                                                <td colSpan="7" className="px-6 py-8 text-center text-green-600 font-bold bg-green-50">
+                                                                <td colSpan="6" className="px-6 py-8 text-center text-green-600 font-bold bg-green-50">
                                                                     利用なし（連絡済み）
                                                                     <button onClick={() => toggleNoUsage(user.name)} className="ml-4 text-xs text-gray-400 underline no-print">解除</button>
                                                                 </td>
                                                             </tr>
                                                         ) : user.records.length === 0 ? (
                                                             <tr>
-                                                                <td colSpan="7" className="px-6 py-8 text-center text-gray-400">
+                                                                <td colSpan="6" className="px-6 py-8 text-center text-gray-400">
                                                                     利用履歴なし
                                                                 </td>
                                                             </tr>
@@ -1377,7 +1458,6 @@
                                                                     </td>
                                                                     <td className="px-6 py-3 font-mono text-gray-600">{row.date}</td>
                                                                     <td className="px-6 py-3 font-mono text-gray-600">{row.time}</td>
-                                                                    <td className="px-6 py-3 font-mono text-gray-600">{formatDuration(row.durationMinutes)}</td>
                                                                     <td className="px-6 py-3 font-medium text-gray-800">
                                                                         {/* 空白削除処理 */}
                                                                         {row.content.replace(/[\s　]+/g, ' ')}
