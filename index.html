@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v31</title>
+    <title>PiTaPa利用チェックツール v32</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -507,10 +507,22 @@
             "2026-01-01", "2026-01-12", "2026-02-11", "2026-02-23", "2026-03-20", "2026-04-29", "2026-05-03", "2026-05-04", "2026-05-05", "2026-05-06", "2026-07-20", "2026-08-11", "2026-09-21", "2026-09-22", "2026-09-23", "2026-10-12", "2026-11-03", "2026-11-23"
         ];
 
+        // --- 相互直通運転等の例外接続設定 ---
+        const INTER_COMPANY_CONNECTIONS = [
+            { station: "天神橋筋六丁目", companies: ["大阪メトロ", "阪急電鉄"] },
+            { station: "江坂", companies: ["大阪メトロ", "北大阪急行"] },
+            { station: "長田", companies: ["大阪メトロ", "近鉄電車"] },
+            { station: "竹田", companies: ["京都市営地下鉄", "近鉄電車"] },
+            { station: "御陵", companies: ["京都市営地下鉄", "京阪電車"] },
+            { station: "大阪難波", companies: ["阪神電車", "近鉄電車"] },
+            { station: "西代", companies: ["神戸高速鉄道", "山陽電車"] },
+            { station: "川西能勢口", companies: ["阪急電鉄", "能勢電鉄"] }
+        ];
+
         // --- ゆらぎ自動生成 ---
         const generateDefaultAliases = () => {
             const autoAliases = [];
-            const prefixes = ["大阪", "神戸", "近鉄", "京阪", "阪神", "阪急", "山陽", "能勢", "南海", "高速"]; // "高速"を追加
+            const prefixes = ["大阪", "神戸", "近鉄", "京阪", "阪神", "阪急", "山陽", "能勢", "南海", "高速"];
 
             Object.entries(STATION_DATA).forEach(([company, lines]) => {
                 Object.values(lines).forEach(stations => {
@@ -565,13 +577,10 @@
                 const cleanLine = line.replace(/"/g, "");
                 const nameMatch = cleanLine.match(nameRegex);
                 if (nameMatch) {
-                    // v15変更: スペースを削除せずトリムのみ行う
                     currentName = nameMatch[1].trim();
                     return;
                 }
                 const columns = line.split(",").map(c => c.trim().replace(/"/g, ""));
-                // 変更前: if (columns.length >= 5 && columns[0].match(/^\d{4}\/\d{2}\/\d{2}$/)) {
-                // 変更後: 日付フォーマットの許容範囲を拡大 (YYYY/M/D も許可)
                 if (columns.length >= 5 && columns[0].match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) {
                     const entryTime = columns[1];
                     const exitTime = columns[2];
@@ -671,34 +680,176 @@
             return exists;
         };
 
-        const checkRouteOverlap = (usage, pass, companyAliases) => {
-            const usageCompany = resolveCompanyAlias(usage.companyPrefix, companyAliases) || "その他";
-            let isCompanyMatch = (pass.company === usageCompany);
+        // --- グラフ・経路探索ロジック ---
 
-            if (isCompanyMatch && STATION_DATA[pass.company] && STATION_DATA[pass.company][pass.line]) {
-                const stations = STATION_DATA[pass.company][pass.line];
-                const pMin = Math.min(stations.indexOf(pass.from), stations.indexOf(pass.to));
-                const pMax = Math.max(stations.indexOf(pass.from), stations.indexOf(pass.to));
-                const uMin = Math.min(stations.indexOf(usage.from), stations.indexOf(usage.to));
-                const uMax = Math.max(stations.indexOf(usage.from), stations.indexOf(usage.to));
+        const buildStationGraph = () => {
+            const graph = {}; // nodeKey: [neighborKey, ...]
+            
+            const getNodeKey = (company, station) => `${company}:${station}`;
+            const addEdge = (node1, node2) => {
+                if (!graph[node1]) graph[node1] = new Set();
+                if (!graph[node2]) graph[node2] = new Set();
+                graph[node1].add(node2);
+                graph[node2].add(node1);
+            };
 
-                if (pMin !== -1 && pMax !== -1 && uMin !== -1 && uMax !== -1) {
-                    const overlapStartIdx = Math.max(pMin, uMin);
-                    const overlapEndIdx = Math.min(pMax, uMax);
-                    if (overlapEndIdx > overlapStartIdx) {
-                        return {
-                            isOverlap: true,
-                            overlapText: `${stations[overlapStartIdx]}⇔${stations[overlapEndIdx]}`
-                        };
+            // 1. 同一事業者内・同一路線の駅を接続
+            Object.entries(STATION_DATA).forEach(([company, lines]) => {
+                Object.values(lines).forEach(stations => {
+                    for (let i = 0; i < stations.length - 1; i++) {
+                        const node1 = getNodeKey(company, stations[i]);
+                        const node2 = getNodeKey(company, stations[i+1]);
+                        addEdge(node1, node2);
                     }
-                    return { isOverlap: false };
+                });
+            });
+
+            // 2. 例外設定（他社接続）を適用
+            INTER_COMPANY_CONNECTIONS.forEach(conn => {
+                const { station, companies } = conn;
+                for (let i = 0; i < companies.length; i++) {
+                    for (let j = i + 1; j < companies.length; j++) {
+                        const node1 = getNodeKey(companies[i], station);
+                        const node2 = getNodeKey(companies[j], station);
+                        // 両方のノードがグラフ上に存在する場合のみ接続（データ不整合防止）
+                        if (graph[node1] && graph[node2]) {
+                            addEdge(node1, node2);
+                        }
+                    }
+                }
+            });
+
+            return graph;
+        };
+
+        // 最短経路探索 (BFS)
+        const findShortestPath = (startNodes, endNodes, graph) => {
+            if (startNodes.length === 0 || endNodes.length === 0) return null;
+            
+            const queue = startNodes.map(node => [node]);
+            const visited = new Set(startNodes);
+            const targetSet = new Set(endNodes);
+
+            while (queue.length > 0) {
+                const path = queue.shift();
+                const currentNode = path[path.length - 1];
+
+                if (targetSet.has(currentNode)) {
+                    return path;
+                }
+
+                const neighbors = graph[currentNode];
+                if (neighbors) {
+                    neighbors.forEach(neighbor => {
+                        if (!visited.has(neighbor)) {
+                            visited.add(neighbor);
+                            queue.push([...path, neighbor]);
+                        }
+                    });
                 }
             }
+            return null;
+        };
 
-            const pSet = new Set([pass.from, pass.to]);
-            if (pSet.has(usage.from) && pSet.has(usage.to)) {
-                return { isOverlap: true, overlapText: "定期区間内" };
+        // 経路の重複チェック
+        const checkPathOverlap = (usagePath, passPath) => {
+            if (!usagePath || !passPath) return null;
+
+            // 連続する2ノード（エッジ）が共通しているかチェック
+            const passEdges = new Set();
+            for (let i = 0; i < passPath.length - 1; i++) {
+                const edge1 = `${passPath[i]}-${passPath[i+1]}`;
+                const edge2 = `${passPath[i+1]}-${passPath[i]}`; // 逆方向も同一視
+                passEdges.add(edge1);
+                passEdges.add(edge2);
             }
+
+            let maxOverlapStart = -1;
+            let currentOverlapLength = 0;
+            let overlaps = [];
+
+            for (let i = 0; i < usagePath.length - 1; i++) {
+                const edge = `${usagePath[i]}-${usagePath[i+1]}`;
+                if (passEdges.has(edge)) {
+                    if (currentOverlapLength === 0) maxOverlapStart = i;
+                    currentOverlapLength++;
+                } else {
+                    if (currentOverlapLength > 0) {
+                        overlaps.push({ start: maxOverlapStart, end: maxOverlapStart + currentOverlapLength });
+                    }
+                    currentOverlapLength = 0;
+                }
+            }
+            if (currentOverlapLength > 0) {
+                overlaps.push({ start: maxOverlapStart, end: maxOverlapStart + currentOverlapLength });
+            }
+
+            // 全ての重複区間を返すように修正
+            if (overlaps.length > 0) {
+                const overlapTexts = overlaps.map(ov => {
+                    const startNode = usagePath[ov.start];
+                    const endNode = usagePath[ov.end];
+                    // ノード名 "Company:Station" から駅名のみ抽出
+                    const sName = startNode.split(':')[1];
+                    const eName = endNode.split(':')[1];
+                    // 同一駅名の乗り換え（社間移動）のみの場合は表示をスキップ
+                    if (sName === eName) return null;
+                    return `${sName}⇔${eName}`;
+                }).filter(text => text !== null);
+
+                // 重複を除去して連結
+                return [...new Set(overlapTexts)].join(", ");
+            }
+            return null;
+        };
+
+        const checkRouteOverlap = (usage, pass, companyAliases, graph) => {
+            // 定期区間の経路取得
+            const passStartNode = `${pass.company}:${pass.from}`;
+            const passEndNode = `${pass.company}:${pass.to}`;
+            
+            // 定期区間のノードが存在しない場合は判定不可
+            if (!graph[passStartNode] || !graph[passEndNode]) return { isOverlap: false };
+
+            const passPath = findShortestPath([passStartNode], [passEndNode], graph);
+            if (!passPath) return { isOverlap: false }; // 定期区間がつながらない（データ不備等）
+
+            // 利用区間の開始・終了ノード候補の検索
+            const usageCompany = resolveCompanyAlias(usage.companyPrefix, companyAliases);
+            
+            const findCandidateNodes = (stationName, preferredCompany) => {
+                const candidates = [];
+                // 明示された会社があればそれを優先
+                if (preferredCompany && preferredCompany !== "その他") {
+                    const key = `${preferredCompany}:${stationName}`;
+                    if (graph[key]) candidates.push(key);
+                }
+                // 見つからない場合、または会社指定がない場合は全会社から同名駅を探す
+                if (candidates.length === 0) {
+                    Object.keys(STATION_DATA).forEach(c => {
+                        const key = `${c}:${stationName}`;
+                        if (graph[key]) candidates.push(key);
+                    });
+                }
+                return candidates;
+            };
+
+            const usageStartNodes = findCandidateNodes(usage.from, usageCompany);
+            const usageEndNodes = findCandidateNodes(usage.to, usageCompany);
+
+            if (usageStartNodes.length === 0 || usageEndNodes.length === 0) return { isOverlap: false };
+
+            // 利用区間の最短経路探索
+            const usagePath = findShortestPath(usageStartNodes, usageEndNodes, graph);
+            
+            if (!usagePath) return { isOverlap: false };
+
+            // 重複判定
+            const overlapText = checkPathOverlap(usagePath, passPath);
+            if (overlapText) {
+                return { isOverlap: true, overlapText };
+            }
+
             return { isOverlap: false };
         };
 
@@ -719,6 +870,9 @@
             const [newAlias, setNewAlias] = useState({ from: "", to: "", company: "" });
             const [newCompanyAlias, setNewCompanyAlias] = useState({ from: "", to: "" });
             const [showHelp, setShowHelp] = useState(false);
+
+            // グラフ構築 (キャッシュ)
+            const stationGraph = useMemo(() => buildStationGraph(), []);
 
             const availableLines = useMemo(() => {
                 if (STATION_DATA[editingPass.company]) return Object.keys(STATION_DATA[editingPass.company]);
@@ -887,6 +1041,13 @@
                 setUsers(users.filter(u => u.id !== id));
             };
 
+            const scrollToUser = (name) => {
+                const element = document.getElementById(`user-card-${name}`);
+                if (element) {
+                    element.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                }
+            };
+
             const analyzedData = useMemo(() => {
                 return parsedData.map(record => {
                     const alerts = [];
@@ -917,22 +1078,29 @@
                         const user = users.find(u => u.name === record.name);
                         
                         if (user && user.passes.length > 0 && usageInfo) {
+                            const detectedOverlaps = [];
                             for (const pass of user.passes) {
-                                const check = checkRouteOverlap(usageInfo, pass, companyAliases);
+                                // 変更: グラフを用いた重複チェックを使用
+                                const check = checkRouteOverlap(usageInfo, pass, companyAliases, stationGraph);
                                 if (check.isOverlap) {
                                     if (record.amount > 0) {
-                                        alerts.push('route');
-                                        overlapInfoText = check.overlapText || "";
+                                        if (!alerts.includes('route')) alerts.push('route');
+                                        if (check.overlapText) {
+                                            detectedOverlaps.push(check.overlapText);
+                                        }
                                     }
-                                    break;
+                                    // breakを削除し、全ての定期券をチェック
                                 }
+                            }
+                            if (detectedOverlaps.length > 0) {
+                                overlapInfoText = [...new Set(detectedOverlaps)].join("\n"); // 改行区切りに変更
                             }
                         }
                     }
 
                     return { ...record, alerts, isIgnored, overlapInfoText };
                 });
-            }, [parsedData, users, holidays, aliases, companyAliases]);
+            }, [parsedData, users, holidays, aliases, companyAliases, stationGraph]); // stationGraphを追加
 
             const userSummaries = useMemo(() => {
                 const map = {};
@@ -1001,7 +1169,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v31
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v32
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1344,7 +1512,11 @@
                                             <h3 className="text-lg font-bold text-yellow-800 mb-2">定期区間重複あり ({duplicateRouteUsers.length}名)</h3>
                                             <div className="flex flex-wrap gap-2">
                                                 {duplicateRouteUsers.map((u, i) => (
-                                                    <span key={i} className="px-3 py-1 bg-white border border-yellow-200 text-yellow-700 rounded-full text-sm font-medium">
+                                                    <span 
+                                                        key={i} 
+                                                        onClick={() => scrollToUser(u.name)}
+                                                        className="px-3 py-1 bg-white border border-yellow-200 text-yellow-700 rounded-full text-sm font-medium cursor-pointer hover:bg-yellow-100 transition"
+                                                    >
                                                         {u.name}
                                                     </span>
                                                 ))}
@@ -1400,7 +1572,7 @@
                                     </div>
                                 ) : (
                                     activeUsers.map((user, idx) => (
-                                        <div key={idx} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden page-break print-break-inside-avoid result-card">
+                                        <div key={idx} id={`user-card-${user.name}`} className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden page-break print-break-inside-avoid result-card">
                                             <div className="bg-gray-50 px-6 py-4 border-b flex flex-wrap gap-4 justify-between items-center result-header">
                                                 <div>
                                                     <h3 className="text-xl font-bold text-gray-800 flex items-center gap-2">
@@ -1486,7 +1658,7 @@
                                                                     <td className="px-6 py-3 text-right font-mono">¥{row.amount.toLocaleString()}</td>
                                                                     <td className="px-6 py-3 truncate max-w-xs text-gray-500">
                                                                         {row.overlapInfoText && (
-                                                                            <span className="block text-xs text-red-600 font-bold mb-1">
+                                                                            <span className="block text-xs text-red-600 font-bold mb-1 whitespace-pre-wrap">
                                                                                 重複: {row.overlapInfoText}
                                                                             </span>
                                                                         )}
