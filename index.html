@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v35</title>
+    <title>PiTaPa利用チェックツール v38</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -136,6 +136,7 @@
             tr { height: auto !important; }
             
             .bg-red-50 { background-color: #fff0f0 !important; }
+            .bg-blue-50 { background-color: #f0f7ff !important; }
             .text-red-600 { color: #000 !important; font-weight: bold; } 
             
             .shadow-sm { box-shadow: none !important; border: none !important; }
@@ -196,12 +197,16 @@
         const AlertBadge = ({ type }) => {
             const styles = {
                 holiday: "bg-red-100 text-red-800 border-red-200",
+                sunday: "bg-red-100 text-red-800 border-red-200",
+                saturday: "bg-blue-100 text-blue-800 border-blue-200",
                 route: "bg-yellow-100 text-yellow-800 border-yellow-200",
                 bus: "bg-gray-100 text-gray-600",
                 unknown: "bg-orange-100 text-orange-800 border-orange-200"
             };
             const labels = {
                 holiday: "休日",
+                sunday: "日曜",
+                saturday: "土曜",
                 route: "定期重複",
                 bus: "対象外",
                 unknown: "駅名不明"
@@ -249,7 +254,8 @@
                                     <div>
                                         <h4 className="font-bold">③ 結果の確認 (「結果確認」タブ)</h4>
                                         <ul className="list-disc pl-5">
-                                            <li><span className="bg-red-100 text-red-800 px-1 rounded">休日</span>: 土日祝日の利用</li>
+                                            <li><span className="bg-red-100 text-red-800 px-1 rounded">休日/日曜</span>: 日曜・祝日の利用</li>
+                                            <li><span className="bg-blue-100 text-blue-800 px-1 rounded">土曜</span>: 土曜日の利用</li>
                                             <li><span className="bg-yellow-100 text-yellow-800 px-1 rounded">定期重複</span>: 登録した定期区間内での課金利用</li>
                                             <li><span className="bg-orange-100 text-orange-800 px-1 rounded">駅名不明</span>: マスタデータにない駅名（ゆらぎ設定で登録推奨）</li>
                                             <li>未提出者（CSVがない社員）は画面上部にリストアップされます。「利用なし」の連絡があった場合は、名前をクリックして「利用なし連絡済」に切り替えられます。</li>
@@ -278,6 +284,19 @@
 )).join("\n\n")}
                                 </div>
                             </section>
+
+                            <section>
+                                <h3 className="font-bold text-base text-blue-800 mb-2">6. 経路探索と判定ロジックについて</h3>
+                                <div className="pl-4 space-y-2 text-xs">
+                                    <p>本ツールは、簡易的な経路探索アルゴリズムを用いて定期区間との重複を判定しています。</p>
+                                    <ul className="list-disc pl-5">
+                                        <li><strong>接続点:</strong> 同一事業者の同名駅、および相互直通運転等で指定された特定の異事業者間（例：天神橋筋六丁目、長田、竹田など）を接続点として扱います。</li>
+                                        <li><strong>探索方法:</strong> 幅優先探索(BFS)を用いて、利用区間の「発駅」から「着駅」への最短経路（駅数ベース）を探索します。</li>
+                                        <li><strong>重複判定:</strong> 探索された経路上の駅の並びと、登録された定期区間の駅の並びを比較し、2駅以上連続して一致する区間がある場合、その部分を「定期重複」とみなします。</li>
+                                        <li><strong>注意点:</strong> 実際の乗車経路と異なる経路（最短経路など）が探索された場合、実際の利用状況と異なる判定結果になる可能性があります。また、振替輸送や特殊な乗り継ぎ割引などは考慮されません。</li>
+                                    </ul>
+                                </div>
+                            </section>
                         </div>
                         <div className="mt-6 text-center">
                             <button onClick={onClose} className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700">閉じる</button>
@@ -295,7 +314,7 @@
                 "山陽本線(姫路-相生)": ["姫路", "英賀保", "はりま勝原", "網干", "竜野", "相生"],
                 "宝塚線(福知山線)": ["尼崎", "塚口", "猪名寺", "伊丹", "北伊丹", "川西池田", "中山寺", "宝塚", "生瀬", "西宮名塩", "武田尾", "道場", "三田", "新三田"],
                 "東西線・学研都市線": ["木津", "西木津", "祝園", "下狛", "ＪＲ三山木", "同志社前", "京田辺", "大住", "松井山手", "長尾", "藤阪", "津田", "河内磐船", "星田", "寝屋川公園", "忍ヶ丘", "四条畷", "野崎", "住道", "鴻池新田", "徳庵", "放出", "鴫野", "京橋", "大阪城北詰", "大阪天満宮", "北新地", "新福島", "海老江", "御幣島", "加島", "尼崎"],
-                "大阪環状線": ["大阪", "福島", "野田", "西九条", "弁天町", "大正", "芦原橋", "今宮", "新今宮", "天王寺", "寺田町", "桃谷", "鶴橋", "玉造", "森ノ宮", "大阪城公園", "京橋", "桜ノ宮", "天満"],
+                "大阪環状線": ["大阪", "福島", "野田", "西九条", "弁天町", "大正", "芦原橋", "今宮", "新今宮", "天王寺", "寺田町", "桃谷", "鶴橋", "玉造", "森ノ宮", "大阪城公園", "京橋", "桜ノ宮", "天満", "大阪"],
                 "阪和線": ["天王寺", "美章園", "南田辺", "鶴ヶ丘", "長居", "我孫子町", "杉本町", "浅香", "堺市", "三国ヶ丘", "百舌鳥", "上野芝", "津久野", "鳳", "富木", "北信太", "信太山", "和泉府中", "久米田", "下松", "東岸和田", "東貝塚", "和泉橋本", "東佐野", "熊取", "日根野", "りんくうタウン", "関西空港"],
                 "大和路線": ["加茂", "木津", "平城山", "奈良", "郡山", "大和小泉", "法隆寺", "王寺", "三郷", "河内堅上", "高井田", "柏原", "志紀", "八尾", "久宝寺", "加美", "平野", "東部市場前", "天王寺", "新今宮", "今宮", "ＪＲ難波"],
                 "赤穂線": ["相生", "西相生", "坂越", "播州赤穂", "天和", "備前福河", "日生", "寒河", "邑久", "長船", "香登", "伊部", "西片上", "西大寺", "大富", "東岡山"],
@@ -568,6 +587,44 @@
             return holidayList.includes(formattedDate) || holidayList.includes(isoDate);
         };
 
+        const getHolidayType = (dateStr, holidayList) => {
+            // dateStr format expected: "YYYY/MM/DD"
+            const parts = dateStr.split(/[\/\-]/);
+            if (parts.length !== 3) return null;
+            
+            const year = parseInt(parts[0], 10);
+            const month = parseInt(parts[1], 10) - 1; // 0-indexed month
+            const day = parseInt(parts[2], 10);
+            
+            // Local time date object
+            const date = new Date(year, month, day);
+            if (isNaN(date.getTime())) return null;
+            
+            const dayOfWeek = date.getDay(); // 0:Sun, 6:Sat
+            
+            const pad = (n) => n < 10 ? '0' + n : n;
+            const yyyymmdd_slash = `${year}/${pad(month+1)}/${pad(day)}`; 
+            const yyyymmdd_hyphen = `${year}-${pad(month+1)}-${pad(day)}`;
+
+            // Check holiday list (priority: Holiday > Sunday > Saturday)
+            // But requirement says: "日曜と休日は薄赤ハッチ", "土曜は薄青ハッチ"
+            // If a Saturday is a holiday, it should be treated as a holiday (red).
+            
+            if (holidayList.includes(yyyymmdd_hyphen) || holidayList.includes(yyyymmdd_slash)) {
+                return 'holiday';
+            }
+            
+            // New Year holidays (12/29 - 1/3)
+            if ((month === 11 && day >= 29) || (month === 0 && day <= 3)) {
+                return 'holiday';
+            }
+
+            if (dayOfWeek === 0) return 'sunday';
+            if (dayOfWeek === 6) return 'saturday';
+
+            return null;
+        };
+
         const parseCSV = (text, fileName) => {
             const lines = text.split(/\r\n|\n/);
             const results = [];
@@ -578,6 +635,7 @@
                 const cleanLine = line.replace(/"/g, "");
                 const nameMatch = cleanLine.match(nameRegex);
                 if (nameMatch) {
+                    // v15変更: スペースを削除せずトリムのみ行う
                     currentName = nameMatch[1].trim();
                     return;
                 }
@@ -1096,8 +1154,10 @@
                     }
 
                     if (!isIgnored || (usageInfo && !isBus)) { 
-                         if (checkIsHoliday(record.date, holidays)) {
-                            alerts.push('holiday');
+                         // Modified holiday check
+                         const holidayType = getHolidayType(record.date, holidays);
+                         if (holidayType) {
+                            alerts.push(holidayType);
                         }
 
                         const user = users.find(u => u.name === record.name);
@@ -1194,7 +1254,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v34
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v37
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
