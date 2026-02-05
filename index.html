@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v32</title>
+    <title>PiTaPa利用チェックツール v34</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -634,6 +634,17 @@
         };
 
         const parseContent = (content, aliases, companyAliases) => {
+            // 特殊対応: 嵐電（均一運賃で駅名がないパターン）
+            // CSVの「ご利用内容」が「嵐電（京福電車）」と完全一致、または含む場合に対応
+            if (content.includes("嵐電（京福電車）")) {
+                return {
+                    from: "嵐電", // ダミー
+                    to: "嵐電",   // ダミー
+                    companyPrefix: "京福",
+                    isRandem: true
+                };
+            }
+
             if (!content.includes("－") && !content.includes("-")) return null;
             const parts = content.split(/[-－]/);
             if (parts.length !== 2) return null;
@@ -804,6 +815,16 @@
         };
 
         const checkRouteOverlap = (usage, pass, companyAliases, graph) => {
+            // 特殊対応: 嵐電
+            if (usage.isRandem) {
+                // 定期券が京福電気鉄道のものであれば重複とみなす
+                // 京福電気鉄道の定期を持っている＝嵐電全線利用可能とみなす（または特定の路線のみだが、明細からは区間が不明なため、京福定期があれば重複とするのが安全）
+                if (pass.company === "京福電気鉄道") {
+                    return { isOverlap: true, overlapText: "定期区間内(均一)" };
+                }
+                return { isOverlap: false };
+            }
+
             // 定期区間の経路取得
             const passStartNode = `${pass.company}:${pass.from}`;
             const passEndNode = `${pass.company}:${pass.to}`;
@@ -1062,10 +1083,13 @@
                         alerts.push('bus');
                     } else {
                         if (usageInfo && !isBus) {
-                            const fromExists = checkStationExists(usageInfo.from, usageInfo.companyPrefix, companyAliases);
-                            const toExists = checkStationExists(usageInfo.to, usageInfo.companyPrefix, companyAliases);
-                            if (!fromExists || !toExists) {
-                                alerts.push('unknown');
+                            // 嵐電以外の場合のみ駅名存在チェックを行う
+                            if (!usageInfo.isRandem) {
+                                const fromExists = checkStationExists(usageInfo.from, usageInfo.companyPrefix, companyAliases);
+                                const toExists = checkStationExists(usageInfo.to, usageInfo.companyPrefix, companyAliases);
+                                if (!fromExists || !toExists) {
+                                    alerts.push('unknown');
+                                }
                             }
                         }
                     }
@@ -1169,7 +1193,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v32
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v34
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
