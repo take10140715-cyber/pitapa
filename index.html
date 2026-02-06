@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v53</title>
+    <title>PiTaPa利用チェックツール v54</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -361,7 +361,13 @@
                         </div>
                         <div className="space-y-4 text-sm text-gray-700">
                             <div className="border-l-4 border-blue-500 pl-3">
-                                <h3 className="font-bold text-blue-700">v53 (Current)</h3>
+                                <h3 className="font-bold text-blue-700">v54 (Current)</h3>
+                                <ul className="list-disc pl-5 text-gray-600">
+                                    <li>CSVの日付形式が混在（2026/01/14と2026/1/14）している場合に月次集計が分かれてしまう問題を修正</li>
+                                </ul>
+                            </div>
+                            <div className="border-l-4 border-gray-300 pl-3">
+                                <h3 className="font-bold text-gray-700">v53</h3>
                                 <ul className="list-disc pl-5 text-gray-600">
                                     <li>ユーザーマニュアルの「対象事業者・駅一覧」と「接続駅リスト」を復活</li>
                                 </ul>
@@ -1547,7 +1553,15 @@
                 analyzedData.forEach(row => {
                     if (noUsageUsers.includes(row.name)) return;
                     
-                    const monthKey = row.date.substring(0, 7);
+                    // 日付文字列を解析してYYYY/MM形式に統一 (2026/1/14 -> 2026/01)
+                    let monthKey = row.date.substring(0, 7); 
+                    const parts = row.date.split(/[\/\-]/);
+                    if (parts.length >= 2) {
+                        const y = parts[0];
+                        const m = parts[1].padStart(2, '0');
+                        monthKey = `${y}/${m}`;
+                    }
+
                     if (!summary[monthKey]) {
                         summary[monthKey] = { total: 0, details: {} };
                     }
@@ -1677,7 +1691,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v53
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v54
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
