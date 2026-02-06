@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v43</title>
+    <title>PiTaPa利用チェックツール v49</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -315,6 +315,48 @@
                         </div>
                     </div>
                 </div>
+            );
+        };
+
+        const DoubleClickButton = ({ children, onClick, onDoubleClick, className, title }) => {
+            const timerRef = useRef(null);
+
+            const handleClick = (e) => {
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                    return;
+                }
+                
+                timerRef.current = setTimeout(() => {
+                    onClick();
+                    timerRef.current = null;
+                }, 300);
+            };
+
+            const handleDoubleClick = (e) => {
+                if (timerRef.current) {
+                    clearTimeout(timerRef.current);
+                    timerRef.current = null;
+                }
+                onDoubleClick();
+            };
+
+            useEffect(() => {
+                return () => {
+                    if (timerRef.current) clearTimeout(timerRef.current);
+                };
+            }, []);
+
+            return (
+                <button
+                    onClick={handleClick}
+                    onDoubleClick={handleDoubleClick}
+                    className={className}
+                    title={title}
+                >
+                    {children}
+                </button>
             );
         };
 
@@ -962,6 +1004,8 @@
             const [aliases, setAliases] = useState([...generateDefaultAliases(), ...MANUAL_STATION_ALIASES]);
             const [companyAliases, setCompanyAliases] = useState(INITIAL_COMPANY_ALIASES);
             const [noUsageUsers, setNoUsageUsers] = useState([]);
+            // [2026-02-06] 追加: 確認OK済みユーザーの管理
+            const [checkedOkUsers, setCheckedOkUsers] = useState([]);
             const [tempUser, setTempUser] = useState({ name: "", passes: [] });
             const [editingPass, setEditingPass] = useState({ company: "JR西日本", line: "", from: "", to: "" });
             const [newAlias, setNewAlias] = useState({ from: "", to: "", company: "" });
@@ -1248,9 +1292,12 @@
                     // 変更点: 利用総額には対象外も含めるため、常に加算
                     map[row.name].totalAmount += row.amount;
 
-                    // アラート集計等は対象外を除外したまま（変更なし）
+                    // v47変更: バス（対象外）も要確認件数に含める
+                    if (row.alerts.length > 0) {
+                        map[row.name].alertCount++;
+                    }
+
                     if (!row.isIgnored) {
-                         if (row.alerts.length > 0) map[row.name].alertCount++;
                          if (row.alerts.includes('route')) {
                              map[row.name].targetAmount += row.amount;
                          }
@@ -1287,6 +1334,7 @@
             }, [analyzedData, noUsageUsers]);
 
             const missingUsers = userSummaries.filter(u => !u.isSubmitted && !u.isUnregistered && !noUsageUsers.includes(u.name));
+            const unregisteredUsers = userSummaries.filter(u => u.isUnregistered && u.isSubmitted && !noUsageUsers.includes(u.name));
             const activeUsers = userSummaries.filter(u => u.isSubmitted && !noUsageUsers.includes(u.name));
             const duplicateRouteUsers = userSummaries.filter(u => u.targetAmount > 0);
 
@@ -1297,6 +1345,30 @@
                     setNoUsageUsers([...noUsageUsers, name]);
                 }
             };
+
+            // [2026-02-06] 追加: 確認OKトグル処理
+            const toggleCheckedOk = (name) => {
+                if (checkedOkUsers.includes(name)) {
+                    setCheckedOkUsers(checkedOkUsers.filter(n => n !== name));
+                } else {
+                    setCheckedOkUsers([...checkedOkUsers, name]);
+                }
+            };
+
+            // [2026-02-06] 追加: 「要確認（その他）」ユーザーと「確認OK」ユーザーの抽出
+            // その他要確認: 重複額が0 かつ アラート数>0 かつ 未確認 かつ 利用なしリストにいない
+            const otherAlertUsers = userSummaries.filter(u => 
+                u.targetAmount === 0 && 
+                u.alertCount > 0 && 
+                !checkedOkUsers.includes(u.name) &&
+                !noUsageUsers.includes(u.name)
+            );
+
+            // 確認OKリスト: 本来なら要確認だがOK済み と 重複ありだがOK済み
+            const confirmedAlertUsers = userSummaries.filter(u =>
+                u.alertCount > 0 &&
+                checkedOkUsers.includes(u.name)
+            );
 
             const handlePrint = () => {
                 try {
@@ -1353,10 +1425,17 @@
                         });
                     }
                     
+                    // v48変更: 時間が入場なし（ハイフン等で始まる）の場合、Excel対策で先頭に「'」をつける
+                    // 半角ハイフン、全角ハイフン、全角マイナスなどを考慮
+                    let displayTime = row.time;
+                    if (displayTime && (displayTime.startsWith('-') || displayTime.startsWith('－'))) {
+                        displayTime = "'" + displayTime;
+                    }
+
                     return [
                         escape(row.name),
                         escape(row.date),
-                        escape(row.time),
+                        escape(displayTime),
                         escape(row.content),
                         row.amount,
                         escape(row.note),
@@ -1383,7 +1462,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v43
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v49
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1735,7 +1814,7 @@
                                     </div>
                                 )}
 
-                                <div className="grid grid-cols-2 gap-4 no-print mb-4">
+                                <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 no-print mb-4">
                                     {missingUsers.length > 0 && (
                                         <div className="bg-red-50 border border-red-200 rounded-xl p-4">
                                             <h3 className="text-lg font-bold text-red-800 mb-2">未提出 ({missingUsers.length}名)</h3>
@@ -1751,6 +1830,24 @@
                                                     </button>
                                                 ))}
                                             </div>
+                                        </div>
+                                    )}
+                                    {unregisteredUsers.length > 0 && (
+                                        <div className="bg-gray-100 border border-gray-300 rounded-xl p-4">
+                                            <h3 className="text-lg font-bold text-gray-700 mb-2">社員未登録 ({unregisteredUsers.length}名)</h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {unregisteredUsers.map((u, i) => (
+                                                    <button 
+                                                        key={i} 
+                                                        onClick={() => scrollToUser(u.name)}
+                                                        className="px-3 py-1 bg-white border border-gray-300 text-gray-700 rounded-full text-sm font-medium hover:bg-gray-200"
+                                                        title="クリックで詳細へ移動"
+                                                    >
+                                                        {u.name}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-gray-500 mt-2">※CSVに実績がありますが社員登録がありません</p>
                                         </div>
                                     )}
                                     {duplicateRouteUsers.length > 0 && (
@@ -1769,6 +1866,45 @@
                                             </div>
                                         </div>
                                     )}
+                                    {/* [2026-02-06] 追加: その他要確認リスト */}
+                                    {otherAlertUsers.length > 0 && (
+                                        <div className="bg-orange-50 border border-orange-200 rounded-xl p-4">
+                                            <h3 className="text-lg font-bold text-orange-800 mb-2">要確認（その他） ({otherAlertUsers.length}名)</h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {otherAlertUsers.map((u, i) => (
+                                                    <DoubleClickButton
+                                                        key={i} 
+                                                        onClick={() => scrollToUser(u.name)}
+                                                        onDoubleClick={() => toggleCheckedOk(u.name)}
+                                                        className="px-3 py-1 bg-white border border-orange-200 text-orange-700 rounded-full text-sm font-medium cursor-pointer hover:bg-orange-100 transition select-none"
+                                                        title="クリックで詳細へ移動、ダブルクリックで「確認OK」へ"
+                                                    >
+                                                        {u.name}
+                                                    </DoubleClickButton>
+                                                ))}
+                                            </div>
+                                            <p className="text-xs text-orange-600 mt-2">※クリックで詳細へ移動、ダブルクリックで確認済みに移動</p>
+                                        </div>
+                                    )}
+                                    {/* [2026-02-06] 追加: 確認OKリスト */}
+                                    {confirmedAlertUsers.length > 0 && (
+                                        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                                            <h3 className="text-lg font-bold text-blue-800 mb-2">確認OK ({confirmedAlertUsers.length}名)</h3>
+                                            <div className="flex flex-wrap gap-2">
+                                                {confirmedAlertUsers.map((u, i) => (
+                                                    <button
+                                                        key={i} 
+                                                        onClick={() => toggleCheckedOk(u.name)}
+                                                        className="px-3 py-1 bg-white border border-blue-200 text-blue-700 rounded-full text-sm font-medium cursor-pointer hover:bg-blue-100 transition"
+                                                        title="クリックで「要確認」に戻す"
+                                                    >
+                                                        {u.name} <span className="text-xs text-gray-400 ml-1">戻す</span>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    
                                     {noUsageUsers.length > 0 && (
                                         <div className="bg-green-50 border border-green-200 rounded-xl p-4">
                                             <h3 className="text-lg font-bold text-green-800 mb-2">利用なし連絡済 ({noUsageUsers.length}名)</h3>
@@ -1796,10 +1932,22 @@
                                             {missingUsers.map(u => u.name).join(", ")}
                                         </div>
                                     )}
+                                    {(unregisteredUsers.length > 0) && (
+                                        <div className="print-summary-box">
+                                            <span className="print-summary-title">【社員未登録】</span>
+                                            {unregisteredUsers.map(u => u.name).join(", ")}
+                                        </div>
+                                    )}
                                     {(duplicateRouteUsers.length > 0) && (
                                         <div className="print-summary-box">
                                             <span className="print-summary-title">【定期区間重複あり】</span>
                                             {duplicateRouteUsers.map(u => u.name).join(", ")}
+                                        </div>
+                                    )}
+                                    {(otherAlertUsers.length > 0) && (
+                                        <div className="print-summary-box">
+                                            <span className="print-summary-title">【要確認（その他）】</span>
+                                            {otherAlertUsers.map(u => u.name).join(", ")}
                                         </div>
                                     )}
                                     {(noUsageUsers.length > 0) && (
@@ -1825,6 +1973,8 @@
                                                         {user.name} 様
                                                         {user.isUnregistered && <span className="text-xs bg-gray-600 text-white px-2 py-0.5 rounded">未登録</span>}
                                                         {noUsageUsers.includes(user.name) && <span className="text-xs bg-green-600 text-white px-2 py-0.5 rounded">利用なし連絡済</span>}
+                                                        {/* [2026-02-06] 追加: 確認OKバッジ */}
+                                                        {checkedOkUsers.includes(user.name) && <span className="text-xs bg-blue-600 text-white px-2 py-0.5 rounded">確認OK</span>}
                                                     </h3>
                                                     {user.passes && user.passes.length > 0 && (
                                                         <div className="pass-info">
@@ -1849,9 +1999,9 @@
                                                                 <span className="font-bold text-slate-700">¥{user.totalAmount.toLocaleString()}</span>
                                                             </div>
                                                             {user.alertCount > 0 ? (
-                                                                <span className="ml-2 bg-red-50 text-red-600 px-4 py-2 rounded-lg font-bold border border-red-100 flex items-center gap-2">
-                                                                    <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>
-                                                                    要確認 {user.alertCount}件
+                                                                <span className={`ml-2 px-4 py-2 rounded-lg font-bold border flex items-center gap-2 ${checkedOkUsers.includes(user.name) ? 'bg-blue-50 text-blue-600 border-blue-100' : 'bg-red-50 text-red-600 border-red-100'}`}>
+                                                                    {!checkedOkUsers.includes(user.name) && <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse no-print"></span>}
+                                                                    {checkedOkUsers.includes(user.name) ? '確認済' : '要確認'} {user.alertCount}件
                                                                 </span>
                                                             ) : (
                                                                 <span className="ml-2 bg-green-50 text-green-600 px-4 py-2 rounded-lg font-bold border border-green-100">
@@ -1893,7 +2043,7 @@
                                                             </tr>
                                                         ) : (
                                                             user.records.map((row, rIdx) => (
-                                                                <tr key={rIdx} className={`hover:bg-gray-50 transition ${row.isIgnored ? 'opacity-50 bg-gray-50' : ''} ${row.alerts.length > 0 ? 'bg-red-50 hover:bg-red-100' : ''}`}>
+                                                                <tr key={rIdx} className={`hover:bg-gray-50 transition ${row.isIgnored ? 'opacity-50 bg-gray-50' : ''} ${row.alerts.length > 0 ? (checkedOkUsers.includes(user.name) ? 'bg-blue-50' : 'bg-red-50 hover:bg-red-100') : ''}`}>
                                                                     <td className="px-6 py-3">
                                                                         {row.alerts.length > 0 ? row.alerts.map(a => <AlertBadge key={a} type={a} />) : (row.isIgnored ? '-' : <span className="text-green-500 font-bold">OK</span>)}
                                                                     </td>
