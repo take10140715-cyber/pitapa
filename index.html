@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>PiTaPa利用チェックツール v54</title>
+    <title>PiTaPa利用チェックツール v55</title>
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
@@ -301,7 +301,7 @@
 
                             <section>
                                 <h3 className="font-bold text-base text-blue-800 mb-2">4. 設定の保存</h3>
-                                <p>登録した社員データや独自の設定（休日・ゆらぎ）は、「設定データ操作」からCSVファイルとして保存（エクスポート）できます。次回利用時に読み込むことで、再入力の手間が省けます。</p>
+                                <p>登録した社員データや独自の設定（休日・ゆらぎ）は、「設定データ操作」からCSVファイルとして保存（エクスポート）できるほか、<strong>保存と同時にブラウザ（現在ご使用の環境）にも記憶されます。</strong>次回アクセス時は自動で読み込まれます。</p>
                             </section>
                             
                             <section>
@@ -361,7 +361,14 @@
                         </div>
                         <div className="space-y-4 text-sm text-gray-700">
                             <div className="border-l-4 border-blue-500 pl-3">
-                                <h3 className="font-bold text-blue-700">v54 (Current)</h3>
+                                <h3 className="font-bold text-blue-700">v55 (Current)</h3>
+                                <ul className="list-disc pl-5 text-gray-600">
+                                    <li>設定のブラウザ保存機能を追加（「保存(CSV)」実行時にブラウザにも自動保存）</li>
+                                    <li>設定の初期化ボタンを追加</li>
+                                </ul>
+                            </div>
+                            <div className="border-l-4 border-gray-300 pl-3">
+                                <h3 className="font-bold text-gray-700">v54</h3>
                                 <ul className="list-disc pl-5 text-gray-600">
                                     <li>CSVの日付形式が混在（2026/01/14と2026/1/14）している場合に月次集計が分かれてしまう問題を修正</li>
                                 </ul>
@@ -502,7 +509,7 @@
                 "阪和線": ["天王寺", "美章園", "南田辺", "鶴ヶ丘", "長居", "我孫子町", "杉本町", "浅香", "堺市", "三国ヶ丘", "百舌鳥", "上野芝", "津久野", "鳳", "富木", "北信太", "信太山", "和泉府中", "久米田", "下松", "東岸和田", "東貝塚", "和泉橋本", "東佐野", "熊取", "日根野", "りんくうタウン", "関西空港"],
                 "大和路線": ["加茂", "木津", "平城山", "奈良", "郡山", "大和小泉", "法隆寺", "王寺", "三郷", "河内堅上", "高井田", "柏原", "志紀", "八尾", "久宝寺", "加美", "平野", "東部市場前", "天王寺", "新今宮", "今宮", "ＪＲ難波"],
                 "赤穂線": ["相生", "西相生", "坂越", "播州赤穂", "天和", "備前福河", "日生", "寒河", "邑久", "長船", "香登", "伊部", "西片上", "西大寺", "大富", "東岡山"],
-                "湖西線": ["京都", "山科", "大津京", "唐崎", "比叡山坂本", "おごと温泉", "堅田", "小野", "和邇", "蓬莱", "志賀", "比良", "近江舞子", "北小松", "近江高島", "安曇川", "新旭", "近江今津", "近江中庄", "マキノ", "永原"],
+                "湖西線": ["京都", "山科", "大津京", "唐崎", "比叡山坂本", "おごと温泉", "堅田", "小野", "和邇", "蓬莱", "志賀", "比良", "近江舞子", "北小松", "近江高島", "安曇川", "新旭", "近江今津", "近江中庄", "マ口", "永原"],
                 "草津線": ["草津", "手原", "石部", "甲西", "三雲", "貴生川", "甲南", "寺庄", "甲賀", "油日", "柘植"],
                 "奈良線": ["京都", "東福寺", "稲荷", "ＪＲ藤森", "桃山", "六地蔵", "木幡", "黄檗", "宇治", "ＪＲ小倉", "新田", "城陽", "長池", "山城青谷", "山城多賀", "玉水", "棚倉", "上狛", "木津", "奈良"],
                 "嵯峨野線(山陰本線)": ["京都", "梅小路京都西", "丹波口", "二条", "円町", "花園", "太秦", "嵯峨嵐山", "保津峡", "馬堀", "亀岡", "並河", "千代川", "八木", "吉富", "園部"],
@@ -1193,6 +1200,25 @@
             // グラフ構築 (キャッシュ)
             const stationGraph = useMemo(() => buildStationGraph(), []);
 
+            // [v55] ローカルストレージからの読み込み
+            useEffect(() => {
+                const savedSettings = localStorage.getItem('pitapa_settings');
+                if (savedSettings) {
+                    try {
+                        const data = JSON.parse(savedSettings);
+                        if (data.users) setUsers(data.users);
+                        if (data.holidays) {
+                            setHolidays(data.holidays);
+                            setHolidayInput(data.holidays.join('\n'));
+                        }
+                        if (data.aliases) setAliases(data.aliases);
+                        if (data.companyAliases) setCompanyAliases(data.companyAliases);
+                    } catch (e) {
+                        console.error("Failed to load settings from localStorage", e);
+                    }
+                }
+            }, []);
+
             // v51変更: availableLines/Stationsを2つ用意
             const availableFromLines = useMemo(() => {
                 if (STATION_DATA[editingPass.fromCompany]) return Object.keys(STATION_DATA[editingPass.fromCompany]);
@@ -1287,7 +1313,28 @@
                 setCompanyAliases(companyAliases.filter((_, i) => i !== index));
             };
 
+            // [v55] 初期化処理の追加
+            const handleResetSettings = () => {
+                if (window.confirm("設定を初期化します。よろしいですか？\n※ブラウザに保存されたデータも消去されます。")) {
+                    localStorage.removeItem('pitapa_settings');
+                    setUsers([]);
+                    setHolidays(INITIAL_HOLIDAYS);
+                    setHolidayInput(INITIAL_HOLIDAYS.join('\n'));
+                    setAliases([...generateDefaultAliases(), ...MANUAL_STATION_ALIASES]);
+                    setCompanyAliases(INITIAL_COMPANY_ALIASES);
+                }
+            };
+
             const handleExportSettings = () => {
+                // [v55] ブラウザへの保存処理を追加
+                const settingsData = {
+                    users,
+                    holidays,
+                    aliases,
+                    companyAliases
+                };
+                localStorage.setItem('pitapa_settings', JSON.stringify(settingsData));
+
                 let csvContent = "\uFEFF"; 
                 csvContent += "# === ユーザー定期設定 ===\n# Type, Name, FromCompany, FromLine, FromStation, ToCompany, ToLine, ToStation\n";
                 users.forEach(u => {
@@ -1413,7 +1460,7 @@
                     return;
                 }
                 if (!tempUser.name.match(/　/)) {
-                    alert("姓名の間には全角スペースを入れてください（例：山口　武志）");
+                    alert("姓名の間には全角スペースを入れてください（例：山田　太郎）");
                     return;
                 }
                 const newUser = {
@@ -1455,6 +1502,7 @@
                         alerts.push('bus');
                     } else {
                         if (usageInfo && !isBus) {
+                            // 嵐電以外の場合のみ駅名存在チェックを行う
                             if (!usageInfo.isRandem) {
                                 const fromExists = checkStationExists(usageInfo.from, usageInfo.companyPrefix, companyAliases);
                                 const toExists = checkStationExists(usageInfo.to, usageInfo.companyPrefix, companyAliases);
@@ -1475,6 +1523,7 @@
                     }
 
                     if (!isIgnored || (usageInfo && !isBus)) { 
+                         // Modified holiday check
                          const holidayType = getHolidayType(record.date, holidays);
                          if (holidayType) {
                             alerts.push(holidayType);
@@ -1485,6 +1534,7 @@
                         if (user && user.passes.length > 0 && usageInfo) {
                             const detectedOverlaps = [];
                             for (const pass of user.passes) {
+                                // 変更: グラフを用いた重複チェックを使用
                                 const check = checkRouteOverlap(usageInfo, pass, companyAliases, stationGraph);
                                 if (check.isOverlap) {
                                     if (record.amount > 0) {
@@ -1493,17 +1543,18 @@
                                             detectedOverlaps.push(check.overlapText);
                                         }
                                     }
+                                    // breakを削除し、全ての定期券をチェック
                                 }
                             }
                             if (detectedOverlaps.length > 0) {
-                                overlapInfoText = [...new Set(detectedOverlaps)].join("\n"); 
+                                overlapInfoText = [...new Set(detectedOverlaps)].join("\n"); // 改行区切りに変更
                             }
                         }
                     }
 
                     return { ...record, alerts, isIgnored, overlapInfoText, company };
                 });
-            }, [parsedData, users, holidays, aliases, companyAliases, stationGraph]);
+            }, [parsedData, users, holidays, aliases, companyAliases, stationGraph]); // stationGraphを追加
 
             const userSummaries = useMemo(() => {
                 const map = {};
@@ -1516,6 +1567,7 @@
                         records: [],
                         isSubmitted: false,
                         passes: u.passes
+                        // monthlySummary は削除
                     };
                 });
 
@@ -1529,12 +1581,17 @@
                             records: [],
                             isSubmitted: true,
                             isUnregistered: true
+                            // monthlySummary は削除
                         };
                     }
+                    
                     map[row.name].isSubmitted = true;
                     map[row.name].records.push(row);
+
+                    // 変更点: 利用総額には対象外も含めるため、常に加算
                     map[row.name].totalAmount += row.amount;
 
+                    // v47変更: バス（対象外）も要確認件数に含める
                     if (row.alerts.length > 0) {
                         map[row.name].alertCount++;
                     }
@@ -1548,10 +1605,13 @@
                 return Object.values(map);
             }, [analyzedData, users]);
 
+            // 全体集計の追加
             const globalMonthlySummary = useMemo(() => {
                 const summary = {};
                 analyzedData.forEach(row => {
+                    // 利用なし連絡済のユーザーは除外
                     if (noUsageUsers.includes(row.name)) return;
+                    // 未登録ユーザーも activeUsers に含まれるなら集計対象とする（現状のロジックに合わせる）
                     
                     // 日付文字列を解析してYYYY/MM形式に統一 (2026/1/14 -> 2026/01)
                     let monthKey = row.date.substring(0, 7); 
@@ -1568,6 +1628,7 @@
                     
                     summary[monthKey].total += row.amount;
                     
+                    // 集計キー：会社名があれば会社名、なければ内容（空白圧縮）
                     let key = row.company || row.content.replace(/[\s　]+/g, ' ').trim();
                     if (!key) key = "不明";
 
@@ -1591,6 +1652,8 @@
                     setNoUsageUsers([...noUsageUsers, name]);
                 }
             };
+
+            // [2026-02-06] 追加: 確認OKトグル処理
             const toggleCheckedOk = (name) => {
                 if (checkedOkUsers.includes(name)) {
                     setCheckedOkUsers(checkedOkUsers.filter(n => n !== name));
@@ -1599,12 +1662,16 @@
                 }
             };
 
+            // [2026-02-06] 追加: 「要確認（その他）」ユーザーと「確認OK」ユーザーの抽出
+            // その他要確認: 重複額が0 かつ アラート数>0 かつ 未確認 かつ 利用なしリストにいない
             const otherAlertUsers = userSummaries.filter(u => 
                 u.targetAmount === 0 && 
                 u.alertCount > 0 && 
                 !checkedOkUsers.includes(u.name) &&
                 !noUsageUsers.includes(u.name)
             );
+
+            // 確認OKリスト: 本来なら要確認だがOK済み と 重複ありだがOK済み
             const confirmedAlertUsers = userSummaries.filter(u =>
                 u.alertCount > 0 &&
                 checkedOkUsers.includes(u.name)
@@ -1624,6 +1691,8 @@
                     alert("出力するデータがありません。");
                     return;
                 }
+
+                // CSVエスケープ処理
                 const escape = (txt) => {
                     if (txt === null || txt === undefined) return "";
                     const stringTxt = String(txt);
@@ -1632,6 +1701,8 @@
                     }
                     return stringTxt;
                 };
+
+                // 集計セクションの作成
                 let summaryCsv = "";
                 if (Object.keys(globalMonthlySummary).length > 0) {
                     summaryCsv += "# --- 月別・事業者別集計 (全社員合計) ---\n";
@@ -1640,10 +1711,12 @@
                         Object.entries(summary.details).sort((a, b) => b[1] - a[1]).forEach(([key, amount]) => {
                             summaryCsv += `${month},${escape(key)},${amount}\n`;
                         });
-                        summaryCsv += `${month},【合計】,${summary.total}\n`;
+                        summaryCsv += `${month},【合計】,${summary.total}\n`; // 月合計行
                     });
-                    summaryCsv += "\n";
+                    summaryCsv += "\n"; // セパレータ空行
                 }
+
+                // 明細セクション
                 const header = ["社員名", "日付", "時間", "内容", "金額", "備考", "状態", "重複詳細", "元ファイル名"];
                 const rows = analyzedData.map(row => {
                     const status = [];
@@ -1658,10 +1731,14 @@
                             else if (a === 'unknown') status.push("駅名不明");
                         });
                     }
+                    
+                    // v48変更: 時間が入場なし（ハイフン等で始まる）の場合、Excel対策で先頭に「'」をつける
+                    // 半角ハイフン、全角ハイフン、全角マイナスなどを考慮
                     let displayTime = row.time;
                     if (displayTime && (displayTime.startsWith('-') || displayTime.startsWith('－'))) {
                         displayTime = "'" + displayTime;
                     }
+
                     return [
                         escape(row.name),
                         escape(row.date),
@@ -1674,6 +1751,7 @@
                         escape(row.fileName)
                     ].join(",");
                 });
+
                 const csvContent = "\uFEFF" + summaryCsv + "# --- 明細データ ---\n" + header.join(",") + "\n" + rows.join("\n");
                 const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
                 const url = URL.createObjectURL(blob);
@@ -1691,7 +1769,7 @@
                     <header className="bg-slate-800 text-white p-4 shadow-lg sticky top-0 z-50 no-print">
                         <div className="container mx-auto flex items-center justify-between">
                             <h1 className="text-xl font-bold flex items-center gap-2">
-                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v54
+                                <span className="bg-white text-slate-800 p-1 rounded"><Icons.Check/></span> PiTaPa Checker v55
                             </h1>
                             <nav className="flex space-x-2">
                                 {[
@@ -1774,7 +1852,11 @@
                                     <div className="flex justify-between items-center bg-white p-4 rounded-xl shadow-sm border border-gray-200">
                                         <span className="font-bold text-gray-700">設定データ操作</span>
                                         <div className="flex gap-2">
-                                            <button onClick={handleExportSettings} className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border">
+                                            {/* v55: 初期化ボタンの追加 */}
+                                            <button onClick={handleResetSettings} className="flex items-center gap-1 text-sm bg-red-50 hover:bg-red-100 text-red-600 px-3 py-1.5 rounded border border-red-200" title="設定を初期状態に戻します">
+                                                <Icons.Trash /> 初期化
+                                            </button>
+                                            <button onClick={handleExportSettings} className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border" title="CSV出力と同時にブラウザに保存されます">
                                                 <Icons.Download /> 保存(CSV)
                                             </button>
                                             <label className="flex items-center gap-1 text-sm bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded border cursor-pointer">
