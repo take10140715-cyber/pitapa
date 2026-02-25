@@ -2499,14 +2499,15 @@ const checkPathOverlap = (usagePath, passPath) => {
 
                                                                     // 3. アコーディオンUIの描画
                                                                     return (
-                                                                        <details key={i} className="group cursor-pointer block ml-2 no-print">
+                                                                            <details key={i} className="group cursor-pointer block ml-2">
                                                                             <summary className="outline-none hover:text-blue-600 transition list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 select-none w-max">
-                                                                                <span className="text-gray-400 group-open:rotate-90 transition-transform text-[10px]">▶</span>
-                                                                                <span className="border-b border-dashed border-gray-400 group-hover:border-blue-400">
+                                                                                {/* ↓ 三角アイコンに no-print を追加 */}
+                                                                                <span className="text-gray-400 group-open:rotate-90 transition-transform text-[10px] no-print">▶</span>
+                                                                                <span className="border-b border-dashed border-gray-400 group-hover:border-blue-400" style={{ borderBottomColor: 'print' ? 'transparent' : '' }}>
                                                                                     [{pFromComp}] {pFromSt} ⇔ [{pToComp}] {pToSt}
                                                                                 </span>
                                                                             </summary>
-                                                                            <div className="pl-3 ml-1.5 mt-1.5 mb-2 text-gray-500 border-l-2 border-blue-300 whitespace-normal break-words text-[11px] leading-relaxed bg-white p-2 rounded shadow-sm max-w-3xl cursor-text">
+                                                                            <div className="pl-3 ml-1.5 mt-1.5 mb-2 text-gray-500 border-l-2 border-blue-300 whitespace-normal break-words text-[11px] leading-relaxed bg-white p-2 rounded shadow-sm max-w-3xl cursor-text no-print">
                                                                                 {pathStr}
                                                                             </div>
                                                                         </details>
