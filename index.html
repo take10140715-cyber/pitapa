@@ -1138,85 +1138,70 @@ const checkPathOverlap = (usagePath, passPath) => {
             syncEdges(`${OM}心斎橋`, `${OM}なんば`, `${OM}四ツ橋`, `${OM}なんば`);
             // ==========================================
 
-            let maxOverlapStart = -1;
-            let currentOverlapLength = 0;
-            let overlaps = [];
-
-            // 利用経路(usagePath)のエッジが、定期券の有効エッジ(passEdges)に含まれているか順番に確認
+// ✅ ↓↓↓ ここから貼り付ける ↓↓↓ ✅
+            // === 判定実行（セグメントごとに赤色表示用データを作成） ===
+            const usageSegments = [];
             for (let i = 0; i < usagePath.length - 1; i++) {
-                const edge = `${usagePath[i]}-${usagePath[i+1]}`;
-                if (passEdges.has(edge)) {
-                    if (currentOverlapLength === 0) maxOverlapStart = i;
-                    currentOverlapLength++;
-                } else {
-                    if (currentOverlapLength > 0) {
-                        overlaps.push({ start: maxOverlapStart, end: maxOverlapStart + currentOverlapLength });
-                    }
-                    currentOverlapLength = 0;
-                }
-            }
-            if (currentOverlapLength > 0) {
-                overlaps.push({ start: maxOverlapStart, end: maxOverlapStart + currentOverlapLength });
+                const fromNode = usagePath[i];
+                const toNode = usagePath[i+1];
+                const segmentKey = `${fromNode}|${toNode}`;
+                usageSegments.push({
+                    fromStation: fromNode.split(':')[1],
+                    toStation: toNode.split(':')[1],
+                    isOverlap: passEdges.has(segmentKey)
+                });
             }
 
-            // 連続する重複区間を結合する処理
-            const mergedOverlaps = [];
-            if (overlaps.length > 0) {
-                let current = overlaps[0];
-                for (let i = 1; i < overlaps.length; i++) {
-                    // 終了地点と開始地点が同じ（駅を共有）なら結合
-                    if (overlaps[i].start === current.end) {
-                        current.end = overlaps[i].end;
-                    } else {
-                        mergedOverlaps.push(current);
-                        current = overlaps[i];
-                    }
-                }
-                mergedOverlaps.push(current);
-            }
+            const isOverlap = usageSegments.some(seg => seg.isOverlap);
+            
+            let overlapText = "";
+            if (isOverlap) {
+                const overlapDescriptions = [];
+                let currentOverlapStart = null;
 
-            // 重複テキストの生成
-            if (mergedOverlaps.length > 0) {
-                const overlapTexts = mergedOverlaps.map(ov => {
-                    const startNode = usagePath[ov.start];
-                    const endNode = usagePath[ov.end];
-                    
-                    const [sComp, sName] = startNode.split(':');
-                    const [eComp, eName] = endNode.split(':');
-                    
-                    if (sName === eName) return null;
-
-                    const subPath = usagePath.slice(ov.start, ov.end + 1);
-                    const lines = new Set();
-                    for(let i=0; i<subPath.length-1; i++){
-                        const [c1, st1] = subPath[i].split(':');
-                        const [c2, st2] = subPath[i+1].split(':');
-                        if(c1 === c2 && STATION_DATA[c1]){
-                             Object.entries(STATION_DATA[c1]).forEach(([lName, stations]) => {
-                                 if(stations.includes(st1) && stations.includes(st2) && Math.abs(stations.indexOf(st1)-stations.indexOf(st2))===1){
-                                     lines.add(lName);
-                                 }
-                             });
+                usageSegments.forEach((seg, index) => {
+                    if (seg.isOverlap) {
+                        if (!currentOverlapStart) currentOverlapStart = seg.fromStation;
+                        if (index === usageSegments.length - 1 || !usageSegments[index+1].isOverlap) {
+                            overlapDescriptions.push(`${currentOverlapStart}⇔${seg.toStation}`);
+                            currentOverlapStart = null;
                         }
                     }
-                    
-                    const lineStr = lines.size > 0 ? `(${Array.from(lines).join("・")}) ` : "";
-                    return `${lineStr}${sName}⇔${eName}`;
-                }).filter(text => text !== null);
-
-                return [...new Set(overlapTexts)].join(", ");
+                });
+                const routeName = usageCompany && usageCompany !== "その他" ? `(${usageCompany}) ` : "";
+                overlapText = overlapDescriptions.map(desc => `${routeName}${desc}`).join("\n");
             }
-            return null;
+
+            const formatPath = (pathNodes) => {
+                if (!pathNodes) return "";
+                return pathNodes.map(node => node.split(':')[1]).join(' → ');
+            };
+
+            return { 
+                isOverlap, 
+                overlapText, 
+                usagePathStr: formatPath(usagePath), 
+                passPathStr: formatPath(passPath), 
+                usageSegments 
+            };
         };
+// ✅ ↑↑↑ ここまで貼り付ける ↑↑↑ ✅
 
 // ==========================================
 // 【修正後】checkRouteOverlap 関数一式
 // ==========================================
+       // ✅ ↓↓↓ ここから貼り付ける ↓↓↓ ✅
         const checkRouteOverlap = (usage, pass, companyAliases, graph) => {
             // 嵐電(均一区間)の特殊処理
             if (usage.isRandem) {
                 if (pass.company === "京福電気鉄道") {
-                    return { isOverlap: true, overlapText: "定期区間内(均一)", usagePathStr: "嵐電(利用)", passPathStr: "嵐電(定期)" };
+                    return { 
+                        isOverlap: true, 
+                        overlapText: "定期区間内(均一)", 
+                        usagePathStr: "嵐電(利用)", 
+                        passPathStr: "嵐電(定期)",
+                        usageSegments: null 
+                    };
                 }
                 return { isOverlap: false };
             }
@@ -1259,7 +1244,7 @@ const checkPathOverlap = (usagePath, passPath) => {
             const usagePath = findShortestPath(usageStartNodes, usageEndNodes, graph);
             if (!usagePath) return { isOverlap: false };
 
-            // --- 追加：事業者の共通チェック（関係ない路線の場合はここで弾く） ---
+            // 事業者の共通チェック
             const getCompaniesInPath = (pathNodes) => {
                 const companies = new Set();
                 pathNodes.forEach(node => companies.add(node.split(':')[0]));
@@ -1267,33 +1252,147 @@ const checkPathOverlap = (usagePath, passPath) => {
             };
             const usageCompanies = getCompaniesInPath(usagePath);
             const passCompanies = getCompaniesInPath(passPath);
-            
-            // 利用経路と定期経路に、1つでも共通の事業者が含まれているか判定（相互乗り入れ考慮）
             const hasCommonCompany = [...usageCompanies].some(c => passCompanies.has(c));
             
-            // 共通事業者が全くなければ、重複する可能性はないので経路情報も返さずに終了
-            if (!hasCommonCompany) {
-                return { isOverlap: false }; 
+            if (!hasCommonCompany) return { isOverlap: false };
+
+// ✅ ↓↓↓ ここから貼り付ける ↓↓↓ ✅
+            // === エッジ判定と特例ルールの適用 ===
+            const passEdges = new Set();
+            for (let i = 0; i < passPath.length - 1; i++) {
+                const edge1 = `${passPath[i]}|${passPath[i+1]}`;
+                const edge2 = `${passPath[i+1]}|${passPath[i]}`; 
+                passEdges.add(edge1);
+                passEdges.add(edge2);
             }
-            // ----------------------------------------------------------------
+
+            const usageEdges = new Set();
+            for (let i = 0; i < usagePath.length - 1; i++) {
+                const edge1 = `${usagePath[i]}|${usagePath[i+1]}`;
+                const edge2 = `${usagePath[i+1]}|${usagePath[i]}`; 
+                usageEdges.add(edge1);
+                usageEdges.add(edge2);
+            }
+
+            // 特例ヘルパー（対象のセットに仮想エッジを追加する）
+            const isSubPath = (path, st1, st2) => {
+                const idx1 = path.indexOf(st1);
+                const idx2 = path.indexOf(st2);
+                return idx1 !== -1 && idx2 !== -1 && idx1 !== idx2;
+            };
+            const addVirtualEdges = (sourcePath, targetEdges, st1, st2) => {
+                const idx1 = sourcePath.indexOf(st1);
+                const idx2 = sourcePath.indexOf(st2);
+                const start = Math.min(idx1, idx2);
+                const end = Math.max(idx1, idx2);
+                for (let i = start; i < end; i++) {
+                    targetEdges.add(`${sourcePath[i]}|${sourcePath[i+1]}`);
+                    targetEdges.add(`${sourcePath[i+1]}|${sourcePath[i]}`);
+                }
+            };
+
+            // JR西日本特例
+            const ST_AMAGASAKI = "JR西日本:尼崎";
+            const ST_OSAKA = "JR西日本:大阪";
+            const ST_KITASHINCHI = "JR西日本:北新地";
+            const ST_KYOBASHI = "JR西日本:京橋";
+
+            if (isSubPath(passPath, ST_AMAGASAKI, ST_OSAKA) && isSubPath(usagePath, ST_AMAGASAKI, ST_KITASHINCHI)) {
+                addVirtualEdges(usagePath, passEdges, ST_AMAGASAKI, ST_KITASHINCHI);
+                addVirtualEdges(passPath, usageEdges, ST_AMAGASAKI, ST_OSAKA); // 逆方向の同期
+            } else if (isSubPath(passPath, ST_AMAGASAKI, ST_KITASHINCHI) && isSubPath(usagePath, ST_AMAGASAKI, ST_OSAKA)) {
+                addVirtualEdges(usagePath, passEdges, ST_AMAGASAKI, ST_OSAKA);
+                addVirtualEdges(passPath, usageEdges, ST_AMAGASAKI, ST_KITASHINCHI); // 逆方向の同期
+            }
+
+            if (isSubPath(passPath, ST_KYOBASHI, ST_OSAKA) && isSubPath(usagePath, ST_KYOBASHI, ST_KITASHINCHI)) {
+                addVirtualEdges(usagePath, passEdges, ST_KYOBASHI, ST_KITASHINCHI);
+                addVirtualEdges(passPath, usageEdges, ST_KYOBASHI, ST_OSAKA); // 逆方向の同期
+            } else if (isSubPath(passPath, ST_KYOBASHI, ST_KITASHINCHI) && isSubPath(usagePath, ST_KYOBASHI, ST_OSAKA)) {
+                addVirtualEdges(usagePath, passEdges, ST_KYOBASHI, ST_OSAKA);
+                addVirtualEdges(passPath, usageEdges, ST_KYOBASHI, ST_KITASHINCHI); // 逆方向の同期
+            }
+
+            // 大阪メトロ特例
+            const syncBothEdges = (stA1, stA2, stB1, stB2) => {
+                const edgeA1 = `${stA1}|${stA2}`;
+                const edgeA2 = `${stA2}|${stA1}`;
+                const edgeB1 = `${stB1}|${stB2}`;
+                const edgeB2 = `${stB2}|${stB1}`;
+                // 定期券側の拡張
+                if (passEdges.has(edgeA1) || passEdges.has(edgeA2)) { passEdges.add(edgeB1); passEdges.add(edgeB2); }
+                if (passEdges.has(edgeB1) || passEdges.has(edgeB2)) { passEdges.add(edgeA1); passEdges.add(edgeA2); }
+                // 利用経路側の拡張
+                if (usageEdges.has(edgeA1) || usageEdges.has(edgeA2)) { usageEdges.add(edgeB1); usageEdges.add(edgeB2); }
+                if (usageEdges.has(edgeB1) || usageEdges.has(edgeB2)) { usageEdges.add(edgeA1); usageEdges.add(edgeA2); }
+            };
+            const OM = "大阪メトロ:";
+            syncBothEdges(`${OM}梅田`, `${OM}淀屋橋`, `${OM}西梅田`, `${OM}肥後橋`);
+            syncBothEdges(`${OM}淀屋橋`, `${OM}本町`, `${OM}肥後橋`, `${OM}本町`);
+            syncBothEdges(`${OM}本町`, `${OM}心斎橋`, `${OM}本町`, `${OM}四ツ橋`);
+            syncBothEdges(`${OM}心斎橋`, `${OM}なんば`, `${OM}四ツ橋`, `${OM}なんば`);
+
+            // === 判定実行（利用経路のセグメント化） ===
+            const usageSegments = [];
+            for (let i = 0; i < usagePath.length - 1; i++) {
+                const fromNode = usagePath[i];
+                const toNode = usagePath[i+1];
+                const segmentKey = `${fromNode}|${toNode}`;
+                usageSegments.push({
+                    fromStation: fromNode.split(':')[1],
+                    toStation: toNode.split(':')[1],
+                    isOverlap: passEdges.has(segmentKey)
+                });
+            }
+
+            // === 追加：判定実行（定期経路のセグメント化） ===
+            const passSegments = [];
+            for (let i = 0; i < passPath.length - 1; i++) {
+                const fromNode = passPath[i];
+                const toNode = passPath[i+1];
+                const segmentKey = `${fromNode}|${toNode}`;
+                passSegments.push({
+                    fromStation: fromNode.split(':')[1],
+                    toStation: toNode.split(':')[1],
+                    isOverlap: usageEdges.has(segmentKey)
+                });
+            }
+
+            const isOverlap = usageSegments.some(seg => seg.isOverlap);
+            
+            let overlapText = "";
+            if (isOverlap) {
+                const overlapDescriptions = [];
+                let currentOverlapStart = null;
+
+                usageSegments.forEach((seg, index) => {
+                    if (seg.isOverlap) {
+                        if (!currentOverlapStart) currentOverlapStart = seg.fromStation;
+                        if (index === usageSegments.length - 1 || !usageSegments[index+1].isOverlap) {
+                            overlapDescriptions.push(`${currentOverlapStart}⇔${seg.toStation}`);
+                            currentOverlapStart = null;
+                        }
+                    }
+                });
+                const routeName = usageCompany && usageCompany !== "その他" ? `(${usageCompany}) ` : "";
+                overlapText = overlapDescriptions.map(desc => `${routeName}${desc}`).join("\n");
+            }
 
             const formatPath = (pathNodes) => {
                 if (!pathNodes) return "";
                 return pathNodes.map(node => node.split(':')[1]).join(' → ');
             };
-            const usagePathStr = formatPath(usagePath);
-            const passPathStr = formatPath(passPath);
 
-            const overlapText = checkPathOverlap(usagePath, passPath);
-            
-            if (overlapText) {
-                return { isOverlap: true, overlapText, usagePathStr, passPathStr };
-            }
-
-            return { isOverlap: false, usagePathStr, passPathStr };
+            return { 
+                isOverlap, 
+                overlapText, 
+                usagePathStr: formatPath(usagePath), 
+                passPathStr: formatPath(passPath), 
+                usageSegments,
+                passSegments // ★追加
+            };
         };
-// ==========================================
-
+// ✅ ↑↑↑ ここまで貼り付ける ↑↑↑ ✅
         const App = () => {
             const [activeTab, setActiveTab] = useState('upload');
             const [files, setFiles] = useState([]);
@@ -1612,6 +1711,7 @@ const checkPathOverlap = (usagePath, passPath) => {
 // ==========================================
 // 【修正後】analyzedData (useMemo) 一式
 // ==========================================
+            // ✅ ↓↓↓ ここから貼り付ける ↓↓↓ ✅
             const analyzedData = useMemo(() => {
                 return parsedData.map(record => {
                     const alerts = [];
@@ -1619,7 +1719,10 @@ const checkPathOverlap = (usagePath, passPath) => {
                     let overlapInfoText = "";
 
                     let usagePathStr = "";
-                    let passPathStrs = []; // ★変更: 複数の定期経路を保持する配列
+                    let passPathStrs = [];
+                    // ★修正：エラーの原因だった変数宣言をここに追加
+                    let finalUsageSegments = null; 
+                    let passSegmentsList = []; // ★追加
 
                     const isBus = record.content.includes("バス");
                     const usageInfo = parseContent(record.content, aliases, companyAliases);
@@ -1658,17 +1761,33 @@ const checkPathOverlap = (usagePath, passPath) => {
                         
                         if (user && user.passes.length > 0 && usageInfo) {
                             const detectedOverlaps = [];
+                            let isFirstPassWithRoute = true;
+
                             for (const pass of user.passes) {
                                 const check = checkRouteOverlap(usageInfo, pass, companyAliases, stationGraph);
                                 
-                                // 事業者が共通している場合のみ経路情報が返ってくる
                                 if (check.usagePathStr) usagePathStr = check.usagePathStr;
                                 if (check.passPathStr) {
-                                    // ★変更: 重複しないように定期経路の配列に追加
                                     if (!passPathStrs.includes(check.passPathStr)) {
                                         passPathStrs.push(check.passPathStr);
+                                        if (check.passSegments) {
+                                            passSegmentsList.push(check.passSegments);
+                                        }
                                     }
-                                }                               
+                                }
+
+                                if (check.usageSegments) {
+                                    if (isFirstPassWithRoute) {
+                                        finalUsageSegments = check.usageSegments.map(seg => ({...seg}));
+                                        isFirstPassWithRoute = false;
+                                    } else if (finalUsageSegments) {
+                                        check.usageSegments.forEach((seg, idx) => {
+                                            if (finalUsageSegments[idx]) {
+                                                finalUsageSegments[idx].isOverlap = finalUsageSegments[idx].isOverlap || seg.isOverlap;
+                                            }
+                                        });
+                                    }
+                                }
 
                                 if (check.isOverlap) {
                                     if (record.amount > 0) {
@@ -1685,11 +1804,10 @@ const checkPathOverlap = (usagePath, passPath) => {
                         }
                     }
 
-                    return { ...record, alerts, isIgnored, overlapInfoText, company, usagePathStr, passPathStrs };
+                    return { ...record, alerts, isIgnored, overlapInfoText, company, usagePathStr, passPathStrs, usageSegments: finalUsageSegments, passSegmentsList };
                 });
             }, [parsedData, users, holidays, aliases, companyAliases, stationGraph]);
-// ==========================================
-
+// ✅ ↑↑↑ ここまで貼り付ける ↑↑↑ ✅
             const userSummaries = useMemo(() => {
                 const map = {};
                 users.forEach(u => {
@@ -2479,7 +2597,6 @@ const checkPathOverlap = (usagePath, passPath) => {
                                                             <div className="font-bold mb-1">定期区間: </div>
                                                             <div className="space-y-1">
                                                                 {user.passes.map((p, i) => {
-                                                                    // 1. ノードキーの生成
                                                                     const pFromComp = p.fromCompany || p.company;
                                                                     const pFromSt   = p.fromStation || p.from;
                                                                     const pToComp   = p.toCompany   || p.company;
@@ -2488,8 +2605,7 @@ const checkPathOverlap = (usagePath, passPath) => {
                                                                     const passStartNode = `${pFromComp}:${pFromSt}`;
                                                                     const passEndNode   = `${pToComp}:${pToSt}`;
                                                                     
-                                                                    // 2. 経路の動的計算と文字列化
-                                                                    let pathStr = "経路の計算ができません（駅名または接続を確認してください）";
+                                                                    let pathStr = "経路の計算ができません";
                                                                     if (stationGraph[passStartNode] && stationGraph[passEndNode]) {
                                                                         const passPath = findShortestPath([passStartNode], [passEndNode], stationGraph);
                                                                         if (passPath) {
@@ -2497,11 +2613,9 @@ const checkPathOverlap = (usagePath, passPath) => {
                                                                         }
                                                                     }
 
-                                                                    // 3. アコーディオンUIの描画
                                                                     return (
-                                                                            <details key={i} className="group cursor-pointer block ml-2">
+                                                                        <details key={i} className="group cursor-pointer block ml-2">
                                                                             <summary className="outline-none hover:text-blue-600 transition list-none [&::-webkit-details-marker]:hidden flex items-center gap-1 select-none w-max">
-                                                                                {/* ↓ 三角アイコンに no-print を追加 */}
                                                                                 <span className="text-gray-400 group-open:rotate-90 transition-transform text-[10px] no-print">▶</span>
                                                                                 <span className="border-b border-dashed border-gray-400 group-hover:border-blue-400" style={{ borderBottomColor: 'print' ? 'transparent' : '' }}>
                                                                                     [{pFromComp}] {pFromSt} ⇔ [{pToComp}] {pToSt}
@@ -2610,27 +2724,83 @@ const checkPathOverlap = (usagePath, passPath) => {
                                                                         )}
                                                                         <div>{row.note}</div>
                                                                         
-                                                                        {/* 経路詳細アコーディオン */}
-                                                                        {(row.usagePathStr || (row.passPathStrs && row.passPathStrs.length > 0)) && (
+                                                                        {/* 経路詳細アコーディオン（赤色ハイライト対応） */}
+                                                                        {(row.usageSegments || row.usagePathStr || (row.passPathStrs && row.passPathStrs.length > 0)) && (
                                                                             <details className="mt-2 text-xs border border-gray-200 rounded p-1.5 bg-white cursor-pointer no-print group">
                                                                                 <summary className="font-bold text-blue-600 outline-none select-none group-open:mb-2 group-open:border-b group-open:pb-1">🔍 経路詳細を確認</summary>
                                                                                 <div className="pl-2 border-l-2 border-blue-200 space-y-1.5">
-                                                                                    {row.usagePathStr && (
+                                                                                    {row.usageSegments ? (
                                                                                         <div>
                                                                                             <span className="inline-block bg-gray-600 text-white px-1 py-0.5 rounded text-[10px] mr-1">利用</span> 
-                                                                                            {row.usagePathStr}
+                                                                                            {/* 最初の出発駅（出発する区間が赤なら赤） */}
+                                                                                            <span className={row.usageSegments[0].isOverlap ? "text-red-600 font-bold" : ""}>
+                                                                                                {row.usageSegments.length > 0 && row.usageSegments[0].fromStation}
+                                                                                            </span>
+                                                                                            
+                                                                                            {/* 各区間（矢印と到着駅）をループ */}
+                                                                                            {row.usageSegments.map((seg, i) => {
+                                                                                                // 次の区間が重複しているかチェック
+                                                                                                const isNextOverlap = row.usageSegments[i + 1] ? row.usageSegments[i + 1].isOverlap : false;
+                                                                                                // この駅が赤くなるべき条件（到着区間か、出発区間のどちらかが赤）
+                                                                                                const isStationRed = seg.isOverlap || isNextOverlap;
+                                                                                                
+                                                                                                return (
+                                                                                                    <span key={i}>
+                                                                                                        {/* 矢印の色は、その区間自体の重複状態 */}
+                                                                                                        <span className="mx-0.5 text-gray-400" style={seg.isOverlap ? {color: '#dc2626'} : {}}>→</span>
+                                                                                                        {/* 駅の色は前後の区間の状態で決まる */}
+                                                                                                        <span className={isStationRed ? "text-red-600 font-bold" : ""}>
+                                                                                                            {seg.toStation}
+                                                                                                        </span>
+                                                                                                    </span>
+                                                                                                );
+                                                                                            })}
                                                                                         </div>
+                                                                                    ) : (
+                                                                                        row.usagePathStr && (
+                                                                                            <div>
+                                                                                                <span className="inline-block bg-gray-600 text-white px-1 py-0.5 rounded text-[10px] mr-1">利用</span> 
+                                                                                                {row.usagePathStr}
+                                                                                            </div>
+                                                                                        )
+                                                                                   )}
+{/* ✅ ↓↓↓ ここに貼り付ける ↓↓↓ ✅ */}
+                                                                                    {/* 定期経路の描画ロジック */}
+                                                                                    {row.passSegmentsList && row.passSegmentsList.length > 0 ? (
+                                                                                        row.passSegmentsList.map((passSegs, pIdx) => (
+                                                                                            <div key={pIdx}>
+                                                                                                <span className="inline-block bg-blue-600 text-white px-1 py-0.5 rounded text-[10px] mr-1">定期</span> 
+                                                                                                <span className={passSegs[0].isOverlap ? "text-red-600 font-bold" : "text-gray-500"}>
+                                                                                                    {passSegs.length > 0 && passSegs[0].fromStation}
+                                                                                                </span>
+                                                                                                {passSegs.map((seg, i) => {
+                                                                                                    const isNextOverlap = passSegs[i + 1] ? passSegs[i + 1].isOverlap : false;
+                                                                                                    const isStationRed = seg.isOverlap || isNextOverlap;
+                                                                                                    return (
+                                                                                                        <span key={i}>
+                                                                                                            <span className="mx-0.5 text-gray-400" style={seg.isOverlap ? {color: '#dc2626'} : {}}>→</span>
+                                                                                                            <span className={isStationRed ? "text-red-600 font-bold" : "text-gray-500"}>
+                                                                                                                {seg.toStation}
+                                                                                                            </span>
+                                                                                                        </span>
+                                                                                                    );
+                                                                                                })}
+                                                                                            </div>
+                                                                                        ))
+                                                                                    ) : (
+                                                                                        // 嵐電などの区間データがない場合
+                                                                                        row.passPathStrs && row.passPathStrs.map((pStr, pIdx) => (
+                                                                                            <div key={pIdx} className="text-gray-500">
+                                                                                                <span className="inline-block bg-blue-600 text-white px-1 py-0.5 rounded text-[10px] mr-1">定期</span> 
+                                                                                                {pStr}
+                                                                                            </div>
+                                                                                        ))
                                                                                     )}
-                                                                                    {/* ★変更: 定期経路の配列をループしてすべて表示 */}
-                                                                                    {row.passPathStrs && row.passPathStrs.map((pStr, pIdx) => (
-                                                                                        <div key={pIdx}>
-                                                                                            <span className="inline-block bg-blue-600 text-white px-1 py-0.5 rounded text-[10px] mr-1">定期</span> 
-                                                                                            {pStr}
-                                                                                        </div>
-                                                                                    ))}
+{/* ✅ ↑↑↑ ここまで貼り付ける ↑↑↑ ✅ */}
                                                                                 </div>
                                                                             </details>
-                                                                        )}
+                                                                        )} 
+
                                                                     </td>
                                                                 </tr>
                                                             ))
